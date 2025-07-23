@@ -1,0 +1,164 @@
+/*------------------------------------------------------------------
+Project:Team layout
+Author: The_Krishna        
+-------------------------------------------------------------------*/
+/*----------------Table of contents Start---------------------------
+1.Default css
+2.layout-1 section
+---------Table of contents End-----------------------------------*/
+/*------------------------ [Color codes] ------------------------                     
+Background:#FFF
+Content:linear-gradient(115deg, #FF6004, #FE9E30)   
+-------------------------------------------------------------------*/
+/************************ 1.Default css ***************************/
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    width: 100%;
+    height: 100%;
+}
+*, ::after, ::before {
+    box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}
+a:focus, a {
+    outline: none;
+    text-decoration: none;
+    cursor: pointer;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+    margin: 0;
+    padding: 0;
+}
+svg {
+    vertical-align: middle;
+}
+input {
+    outline-width: 0;
+    outline-offset: 0;
+    outline: 0;
+    border: none;
+    outline: none;
+    width: 100%;
+}
+textarea {
+    outline-width: 0;
+    outline-offset: 0;
+    outline: 0;
+}
+ul {
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+}
+body {
+    font-family: "Jost", sans-serif;
+}
+.row {
+    --bs-gutter-x: 30px;
+}
+/* ------------- 1. layout-1 section ------------- */
+.team-section-1 {
+    padding: 100px 0;
+}
+.team-section-1 .team-check p {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    line-height: 1;
+    background: linear-gradient(115deg, #FF6004, #FE9E30);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.team-check {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.team-section-1 .team-check h1 {
+    font-size: 48px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 38px;
+    color: #191919;
+    display: block;
+    margin: auto;
+    margin-bottom: 0;
+}
+.team-member {
+    position: relative;
+    border-radius: 20px;
+    background: #fff;
+}
+.team-member:hover {
+    box-shadow: rgba(183, 183, 183, 0.2) 0px 8px 24px;
+    transition: all .35s ease-in-out;
+}
+.team-images {
+    overflow: hidden;
+    position: relative;
+    border-radius: 20px;
+}
+.team-images img {
+    height: auto;
+    max-width: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+.team-member .team-desc {
+    padding: 20px 15px;
+    position: relative;
+    z-index: 9;
+}
+.team-member .team-desc .name {
+    font-size: 24px;
+    font-weight: 600;
+    text-transform: capitalize;
+    display: block;
+    margin: 0;
+    color: #000;
+    transition: all .35s ease-in;
+}
+.team-member .team-desc a:hover {
+    color: #FF6004;
+    transition: all .35s ease-in;
+}
+.team-desc span {
+    font-size: 16px;
+    font-weight: 400;
+    color: #606060;
+}
+.social-icon {
+    gap: 15px;
+    margin-top: 20px;
+}
+.social-icon a {
+    font-weight: normal !important;
+    background: #FFF;
+    border: 1px solid #bdbdbd;
+    color: #000;
+    padding: 15px;
+    border-radius: 100%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .35s ease-in-out;
+}
+.social-icon a i {
+    font-size: 16px;
+}
+.social-icon a:hover i {
+    color: #FFF;
+}
+.social-icon a:hover {
+    background-color: #FF6004;
+    border: 1px solid #FF6004;
+}
