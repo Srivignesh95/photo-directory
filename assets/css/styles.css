@@ -1,0 +1,31 @@
+/* Common Styles */
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.card {
+    border-radius: 10px;
+}
+
+.card img {
+    height: 200px;
+    object-fit: cover;
+}
+
+.container h3 {
+    margin-bottom: 20px;
+}
+
+/* Admin Sidebar */
+.list-group a.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.list-group a:hover {
+    background-color: #f1f1f1;
+}
