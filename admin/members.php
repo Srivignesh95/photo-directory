@@ -61,7 +61,7 @@ $members = $stmt->fetchAll();
 
 <div class="row">
     <?php foreach ($members as $member): ?>
-        <div class="col-md-4 mb-4">
+        <div class="col-md-3 mb-3">
             <div class="card shadow">
                 <?php if ($member['family_photo']): ?>
                     <img src="assets/images/uploads/<?php echo htmlspecialchars($member['family_photo']); ?>" class="card-img-top" alt="Family Photo">
