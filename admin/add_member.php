@@ -8,33 +8,6 @@ if (!isAdmin()) {
 $error = '';
 $success = '';
 
-// ✅ Add image resize function (supports JPEG and PNG)
-function resizeImage($source, $destination, $targetWidth, $targetHeight) {
-    list($width, $height) = getimagesize($source);
-    $type = mime_content_type($source);
-
-    if ($type == 'image/jpeg') {
-        $image = imagecreatefromjpeg($source);
-    } elseif ($type == 'image/png') {
-        $image = imagecreatefrompng($source);
-    } else {
-        return false; // Unsupported type
-    }
-
-    $newImage = imagecreatetruecolor($targetWidth, $targetHeight);
-    imagecopyresampled($newImage, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
-
-    if ($type == 'image/jpeg') {
-        imagejpeg($newImage, $destination, 90);
-    } elseif ($type == 'image/png') {
-        imagepng($newImage, $destination);
-    }
-
-    imagedestroy($image);
-    imagedestroy($newImage);
-    return true;
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name']);
     $phone = trim($_POST['phone']);
@@ -44,16 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_email = trim($_POST['spouse_email']);
     $children = isset($_POST['children']) ? $_POST['children'] : [];
 
-    // ✅ Handle photo upload
+    // ✅ Handle photo upload without resizing
     $photo_name = '';
     if (!empty($_FILES['family_photo']['name'])) {
         $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
         $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
         $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
 
-        if (move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
-            resizeImage($target_path, $target_path, 400, 300); // ✅ Resize for consistency
-        }
+        move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
     }
 
     try {
@@ -118,28 +89,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <a href="add_member.php" class="list-group-item list-group-item-action active">Add Member</a>
         </div>
     </div>
+
     <div class="col-md-9">
         <h3>Add New Member</h3>
         <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?php echo $success; ?></div><?php endif; ?>
-        
+
         <form method="POST" enctype="multipart/form-data">
             <div class="mb-3">
                 <label>Family Photo</label>
                 <input type="file" name="family_photo" class="form-control" accept="image/*" onchange="previewImage(event)">
                 <img id="photoPreview" src="" alt="" class="mt-2" style="display:none;width:150px;border:1px solid #ccc;padding:5px;">
             </div>
-            
+
             <div class="mb-3">
                 <label>Primary Member Name</label>
                 <input type="text" name="name" class="form-control" required>
             </div>
-            
+
             <div class="mb-3">
                 <label>Phone</label>
                 <input type="text" name="phone" class="form-control" required>
             </div>
-            
+
             <div class="mb-3">
                 <label>Email (optional)</label>
                 <input type="email" name="email" class="form-control">
@@ -162,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h5>Children</h5>
             <div id="children-container"></div>
             <button type="button" class="btn btn-secondary mb-3" onclick="addChild()">Add Child</button>
-            
+
             <button type="submit" class="btn btn-primary w-100">Add Member</button>
         </form>
     </div>

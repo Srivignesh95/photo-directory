@@ -62,22 +62,37 @@ $members = $stmt->fetchAll();
         $child_stmt->execute([$member['id']]);
         $children = implode(', ', array_column($child_stmt->fetchAll(), 'child_name'));
         ?>
-        <div class="col-md-4 mb-3">
-            <div class="card shadow text-center p-3" style="cursor:pointer;" 
-                 onclick="showMemberModal('<?php echo htmlspecialchars($member['primary_name']); ?>', 
-                                           '<?php echo htmlspecialchars($member['primary_phone']); ?>', 
-                                           '<?php echo htmlspecialchars($member['primary_email']); ?>', 
-                                           '<?php echo htmlspecialchars($member['spouse_name']); ?>', 
-                                           '<?php echo htmlspecialchars($member['spouse_phone']); ?>', 
-                                           '<?php echo htmlspecialchars($member['spouse_email']); ?>', 
-                                           '<?php echo htmlspecialchars($children); ?>', 
-                                           '<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>')">
-                <h5><?php echo htmlspecialchars($member['primary_name']); ?></h5>
-                <?php if ($member['spouse_name']): ?>
-                    <p>Spouse: <?php echo htmlspecialchars($member['spouse_name']); ?></p>
-                <?php endif; ?>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow text-center p-2" style="cursor:pointer;"
+                onclick="showMemberModal(
+                    '<?php echo htmlspecialchars($member['primary_name']); ?>',
+                    '<?php echo htmlspecialchars($member['primary_phone']); ?>',
+                    '<?php echo htmlspecialchars($member['primary_email']); ?>',
+                    '<?php echo htmlspecialchars($member['spouse_name']); ?>',
+                    '<?php echo htmlspecialchars($member['spouse_phone']); ?>',
+                    '<?php echo htmlspecialchars($member['spouse_email']); ?>',
+                    '<?php echo htmlspecialchars($children); ?>',
+                    '<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>',
+                    '<?php echo isAdmin() || $_SESSION['user_id'] == $member['user_id'] ? "edit_member.php?id=".$member['id'] : ""; ?>',
+                    '<?php echo isAdmin() ? "delete_member.php?id=".$member['id'] : ""; ?>',
+                    <?php echo isAdmin() || $_SESSION['user_id'] == $member['user_id'] ? 'true' : 'false'; ?>
+                )">
+                
+                <!-- Family Photo -->
+                <img src="<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>" 
+                    alt="Family Photo" 
+                    class="card-img-top" 
+                    style="height:180px; object-fit:cover; border-radius:8px;">
+                
+                <div class="card-body">
+                    <h6 class="card-title"><?php echo htmlspecialchars($member['primary_name']); ?></h6>
+                    <?php if ($member['spouse_name']): ?>
+                        <p class="text-muted mb-0">Spouse: <?php echo htmlspecialchars($member['spouse_name']); ?></p>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
+
     <?php endforeach; ?>
 </div>
 
@@ -105,39 +120,63 @@ $members = $stmt->fetchAll();
                 <h5 id="memberModalLabel" class="modal-title">Member Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body row">
-                <div class="col-md-8">
-                    <p><strong>Name:</strong> <span id="modalName"></span></p>
-                    <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
-                    <p><strong>Email:</strong> <span id="modalEmail"></span></p>
-                    <hr>
-                    <p><strong>Spouse:</strong> <span id="modalSpouse"></span></p>
-                    <p><strong>Spouse Phone:</strong> <span id="modalSpousePhone"></span></p>
-                    <p><strong>Spouse Email:</strong> <span id="modalSpouseEmail"></span></p>
-                    <hr>
-                    <p><strong>Children:</strong> <span id="modalChildren"></span></p>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Details on the left -->
+                    <div class="col-md-8 col-12">
+                        <p><strong>Name:</strong> <span id="modalName"></span></p>
+                        <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
+                        <p><strong>Email:</strong> <span id="modalEmail"></span></p>
+                        <hr>
+                        <p><strong>Spouse:</strong> <span id="modalSpouse"></span></p>
+                        <p><strong>Spouse Phone:</strong> <span id="modalSpousePhone"></span></p>
+                        <p><strong>Spouse Email:</strong> <span id="modalSpouseEmail"></span></p>
+                        <hr>
+                        <p><strong>Children:</strong> <span id="modalChildren"></span></p>
+                    </div>
+
+                    <!-- Image on the right -->
+                    <div class="col-md-4 col-12 text-center">
+                        <img id="modalPhoto" src="" alt="Family Photo" class="img-fluid rounded shadow" style="max-height:250px; object-fit:cover;">
+                    </div>
                 </div>
-                <div class="col-md-4 text-center">
-                    <img id="modalPhoto" src="" alt="Family Photo" class="img-fluid rounded shadow">
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <!-- Admin or Owner Controls -->
+                <a href="#" id="editBtn" class="btn btn-primary" style="display:none;">Edit</a>
+                <a href="#" id="deleteBtn" class="btn btn-danger" style="display:none;" onclick="return confirm('Are you sure you want to delete this member?');">Delete</a>
             </div>
         </div>
     </div>
 </div>
 
+
 <script>
-function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, children, photo) {
+function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, children, photo, editLink, deleteLink, isAdminOrOwner) {
     document.getElementById('modalName').textContent = name;
     document.getElementById('modalPhone').textContent = phone;
     document.getElementById('modalEmail').textContent = email;
     document.getElementById('modalSpouse').textContent = spouse;
     document.getElementById('modalSpousePhone').textContent = spousePhone;
     document.getElementById('modalSpouseEmail').textContent = spouseEmail;
-    document.getElementById('modalChildren').textContent = children;
+    document.getElementById('modalChildren').textContent = children || 'N/A';
     document.getElementById('modalPhoto').src = photo;
+
+    // Show edit/delete if admin or owner
+    if (isAdminOrOwner) {
+        document.getElementById('editBtn').style.display = 'inline-block';
+        document.getElementById('deleteBtn').style.display = 'inline-block';
+        document.getElementById('editBtn').href = editLink;
+        document.getElementById('deleteBtn').href = deleteLink;
+    } else {
+        document.getElementById('editBtn').style.display = 'none';
+        document.getElementById('deleteBtn').style.display = 'none';
+    }
 
     new bootstrap.Modal(document.getElementById('memberModal')).show();
 }
+
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -44,71 +44,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_email = trim($_POST['spouse_email']);
     $children_input = isset($_POST['children']) ? $_POST['children'] : [];
 
-    function resizeImage($source, $destination, $targetWidth, $targetHeight) {
-    list($width, $height) = getimagesize($source);
-    $type = mime_content_type($source);
-
-    if ($type == 'image/jpeg') {
-        $image = imagecreatefromjpeg($source);
-    } elseif ($type == 'image/png') {
-        $image = imagecreatefrompng($source);
-    } else {
-        return false; // Unsupported type
-    }
-
-    $newImage = imagecreatetruecolor($targetWidth, $targetHeight);
-    imagecopyresampled($newImage, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
-
-    if ($type == 'image/jpeg') {
-        imagejpeg($newImage, $destination, 90);
-    } elseif ($type == 'image/png') {
-        imagepng($newImage, $destination);
-    }
-
-    imagedestroy($image);
-    imagedestroy($newImage);
-    return true;
-    }
-
-    // Photo upload
+    // ✅ Handle photo upload without resizing
     $photo_name = $member['family_photo'];
     if (!empty($_FILES['family_photo']['name'])) {
-        $photo_name = time() . '_' . basename($_FILES['family_photo']['name']);
+        $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
+        $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
         $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
-        move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
-        resizeImage($target_path, $target_path, 400, 300);
 
-        // Remove old photo
-        if ($member['family_photo'] && file_exists(__DIR__ . '/../assets/images/uploads/' . $member['family_photo'])) {
-            unlink(__DIR__ . '/../assets/images/uploads/' . $member['family_photo']);
+        if (move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
+            // ✅ Delete old photo if exists
+            if ($member['family_photo'] && file_exists(__DIR__ . '/../assets/images/uploads/' . $member['family_photo'])) {
+                unlink(__DIR__ . '/../assets/images/uploads/' . $member['family_photo']);
+            }
         }
     }
 
     try {
         $pdo->beginTransaction();
 
-        // If admin or user updating their info
-        if (isAdmin() || $_SESSION['user_id'] == $member['user_id']) {
-            // Update users table (if email exists)
-            if ($member['user_id']) {
-                $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=? WHERE id=?");
-                $stmt->execute([$name, $phone, $email, $member['user_id']]);
-            }
+        // Update user info if exists
+        if ($member['user_id']) {
+            $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=? WHERE id=?");
+            $stmt->execute([$name, $phone, $email, $member['user_id']]);
+        }
 
-            // Update members table
-            $stmt = $pdo->prepare("UPDATE members SET family_photo=?, spouse_name=?, spouse_phone=?, spouse_email=? WHERE id=?");
-            $stmt->execute([$photo_name, $spouse_name, $spouse_phone, $spouse_email, $member_id]);
+        // Update member details
+        $stmt = $pdo->prepare("UPDATE members SET family_photo=?, spouse_name=?, spouse_phone=?, spouse_email=? WHERE id=?");
+        $stmt->execute([$photo_name, $spouse_name, $spouse_phone, $spouse_email, $member_id]);
 
-            // Delete old children
-            $pdo->prepare("DELETE FROM children WHERE member_id=?")->execute([$member_id]);
+        // Delete old children
+        $pdo->prepare("DELETE FROM children WHERE member_id=?")->execute([$member_id]);
 
-            // Insert new children
-            if (!empty($children_input)) {
-                $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
-                foreach ($children_input as $child_name) {
-                    if (!empty(trim($child_name))) {
-                        $child_stmt->execute([$member_id, trim($child_name)]);
-                    }
+        // Insert new children
+        if (!empty($children_input)) {
+            $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
+            foreach ($children_input as $child_name) {
+                if (!empty(trim($child_name))) {
+                    $child_stmt->execute([$member_id, trim($child_name)]);
                 }
             }
         }
@@ -132,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>Family Photo</label>
             <input type="file" name="family_photo" class="form-control" onchange="previewImage(event)">
             <?php if ($member['family_photo']): ?>
-                <img id="photoPreview" src="../assets/images/uploads/<?php echo $member['family_photo']; ?>" style="width:150px;margin-top:10px;">
+                <img id="photoPreview" src="../assets/images/uploads/<?php echo htmlspecialchars($member['family_photo']); ?>" style="width:150px;margin-top:10px;">
             <?php else: ?>
                 <img id="photoPreview" style="display:none;width:150px;margin-top:10px;">
             <?php endif; ?>
