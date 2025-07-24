@@ -3,7 +3,7 @@ require_once __DIR__ . '/includes/header.php';
 checkAuth();
 
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-$limit = 6;
+$limit = 20;
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? intval($_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
@@ -11,12 +11,16 @@ if ($search) {
     $count_stmt = $pdo->prepare("
         SELECT COUNT(*) FROM members m
         LEFT JOIN users u ON m.user_id = u.id
-        WHERE u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?
+        WHERE (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?) AND u.status = 'approved'
     ");
     $count_stmt->execute(['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']);
 } else {
-    $count_stmt = $pdo->query("SELECT COUNT(*) FROM members");
-}
+    $count_stmt = $pdo->query("
+        SELECT COUNT(*) FROM members m
+        LEFT JOIN users u ON m.user_id = u.id
+        WHERE u.status = 'approved'
+    ");
+} 
 $total_members = $count_stmt->fetchColumn();
 $total_pages = ceil($total_members / $limit);
 
@@ -25,7 +29,7 @@ if ($search) {
         SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
-        WHERE u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?
+        WHERE (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?) AND u.status = 'approved'
         ORDER BY u.name ASC
         LIMIT $limit OFFSET $offset
     ");
@@ -35,11 +39,13 @@ if ($search) {
         SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
+        WHERE u.status = 'approved'
         ORDER BY u.name ASC
         LIMIT $limit OFFSET $offset
     ");
     $stmt->execute();
 }
+
 $members = $stmt->fetchAll();
 ?>
 
@@ -64,25 +70,26 @@ $members = $stmt->fetchAll();
         ?>
         <div class="col-md-3 mb-3">
             <div class="card shadow text-center p-2" style="cursor:pointer;"
-                onclick="showMemberModal(
-                    '<?php echo htmlspecialchars($member['primary_name']); ?>',
-                    '<?php echo htmlspecialchars($member['primary_phone']); ?>',
-                    '<?php echo htmlspecialchars($member['primary_email']); ?>',
-                    '<?php echo htmlspecialchars($member['spouse_name']); ?>',
-                    '<?php echo htmlspecialchars($member['spouse_phone']); ?>',
-                    '<?php echo htmlspecialchars($member['spouse_email']); ?>',
-                    '<?php echo htmlspecialchars($children); ?>',
-                    '<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>',
-                    '<?php echo isAdmin() || $_SESSION['user_id'] == $member['user_id'] ? "edit_member.php?id=".$member['id'] : ""; ?>',
-                    '<?php echo isAdmin() ? "delete_member.php?id=".$member['id'] : ""; ?>',
-                    <?php echo isAdmin() || $_SESSION['user_id'] == $member['user_id'] ? 'true' : 'false'; ?>
-                )">
+                onclick='showMemberModal(
+                    <?php echo json_encode($member["primary_name"]); ?>,
+                    <?php echo json_encode($member["primary_phone"]); ?>,
+                    <?php echo json_encode($member["primary_email"]); ?>,
+                    <?php echo json_encode($member["spouse_name"]); ?>,
+                    <?php echo json_encode($member["spouse_phone"]); ?>,
+                    <?php echo json_encode($member["spouse_email"]); ?>,
+                    <?php echo json_encode($children); ?>,
+                    <?php echo json_encode($member["family_photo"] ? "assets/images/uploads/".$member["family_photo"] : "assets/images/default.jpg"); ?>,
+                    <?php echo json_encode(isAdmin() || $_SESSION["user_id"] == $member["user_id"] ? "admin/edit_member.php?id=".$member["id"] : ""); ?>,
+                    <?php echo json_encode(isAdmin() ? "admin/delete_member.php?id=".$member["id"] : ""); ?>,
+                    <?php echo (isAdmin() || $_SESSION["user_id"] == $member["user_id"]) ? 'true' : 'false'; ?>
+                )'>
+
                 
                 <!-- Family Photo -->
                 <img src="<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>" 
                     alt="Family Photo" 
                     class="card-img-top" 
-                    style="height:180px; object-fit:cover; border-radius:8px;">
+                    style="object-fit:cover; border-radius:8px;">
                 
                 <div class="card-body">
                     <h6 class="card-title"><?php echo htmlspecialchars($member['primary_name']); ?></h6>
@@ -96,6 +103,7 @@ $members = $stmt->fetchAll();
     <?php endforeach; ?>
 </div>
 
+<?php if ($total_pages > 1): ?>
 <nav>
     <ul class="pagination justify-content-center">
         <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
@@ -111,6 +119,8 @@ $members = $stmt->fetchAll();
         </li>
     </ul>
 </nav>
+<?php endif; ?>
+
 
 <!-- Modal -->
 <div class="modal fade" id="memberModal" tabindex="-1" aria-labelledby="memberModalLabel" aria-hidden="true">
@@ -154,13 +164,28 @@ $members = $stmt->fetchAll();
 
 <script>
 function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, children, photo, editLink, deleteLink, isAdminOrOwner) {
-    document.getElementById('modalName').textContent = name;
-    document.getElementById('modalPhone').textContent = phone;
-    document.getElementById('modalEmail').textContent = email;
-    document.getElementById('modalSpouse').textContent = spouse;
-    document.getElementById('modalSpousePhone').textContent = spousePhone;
-    document.getElementById('modalSpouseEmail').textContent = spouseEmail;
-    document.getElementById('modalChildren').textContent = children || 'N/A';
+    const fields = [
+        { id: 'modalName', value: name, label: 'Name' },
+        { id: 'modalPhone', value: phone, label: 'Phone' },
+        { id: 'modalEmail', value: email, label: 'Email' },
+        { id: 'modalSpouse', value: spouse, label: 'Spouse' },
+        { id: 'modalSpousePhone', value: spousePhone, label: 'Spouse Phone' },
+        { id: 'modalSpouseEmail', value: spouseEmail, label: 'Spouse Email' },
+        { id: 'modalChildren', value: children, label: 'Children' }
+    ];
+
+    // Clear all fields first
+    fields.forEach(f => {
+        const parentP = document.getElementById(f.id).closest('p');
+        if (f.value && f.value.trim() !== '') {
+            document.getElementById(f.id).textContent = f.value;
+            parentP.style.display = 'block';
+        } else {
+            parentP.style.display = 'none';
+        }
+    });
+
+    // Show image
     document.getElementById('modalPhoto').src = photo;
 
     // Show edit/delete if admin or owner
@@ -176,7 +201,6 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, c
 
     new bootstrap.Modal(document.getElementById('memberModal')).show();
 }
-
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

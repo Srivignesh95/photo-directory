@@ -16,7 +16,7 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM users WHERE status='pending'"
         <div class="list-group position-sticky" style="top:20px;">
             <a href="dashboard.php" class="list-group-item list-group-item-action active">Dashboard</a>
             <a href="pending.php" class="list-group-item list-group-item-action">Pending Approvals (<?php echo $pending_count; ?>)</a>
-            <a href="../members.php" class="list-group-item list-group-item-action">Manage Members</a>
+            <a href="members.php" class="list-group-item list-group-item-action">Manage Members</a>
             <a href="add_member.php" class="list-group-item list-group-item-action">Add Member</a>
         </div>
     </div>

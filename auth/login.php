@@ -51,6 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Login</button>
                 </form>
+                <div class="mt-3 text-center">
+                    <a href="forgot_password.php" class="d-block mb-2">Forgot Password?</a>
+                    <a href="signup.php" class="d-block">Don't have an account? Sign Up</a>
+                </div>
             </div>
         </div>
     </div>

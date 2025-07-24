@@ -5,6 +5,9 @@ if (!isAdmin()) {
     die("Access Denied");
 }
 
+// ✅ Enable PDO exception mode
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
 $error = '';
 $success = '';
 
@@ -17,65 +20,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_email = trim($_POST['spouse_email']);
     $children = isset($_POST['children']) ? $_POST['children'] : [];
 
-    // ✅ Handle photo upload without resizing
-    $photo_name = '';
-    if (!empty($_FILES['family_photo']['name'])) {
-        $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
-        $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
-        $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
-
-        move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
+    // ✅ Validation
+    if (empty($name)) {
+        $error = "Primary member name is required.";
+    } elseif (empty($email) && empty($phone)) {
+        $error = "Please provide either an Email or a Phone number.";
     }
 
-    try {
-        $pdo->beginTransaction();
+    // ✅ Prepare values (NULL if empty)
+    $emailValue = !empty($email) ? $email : null;
+    $phoneValue = !empty($phone) ? $phone : null;
 
-        $user_id = null;
-        if ($email) {
-            // ✅ Create user with temp password
-            $temp_password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
-            $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
+    // ✅ Check for duplicates before starting transaction
+    if (!$error && (!empty($emailValue) || !empty($phoneValue))) {
+        $check = $pdo->prepare("SELECT id FROM users WHERE email = ? OR phone = ?");
+        $check->execute([$emailValue, $phoneValue]);
+        if ($check->fetch()) {
+            $error = "Email or Phone already exists. Cannot create a new user.";
+        }
+    }
 
-            $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, password, role, status) VALUES (?, ?, ?, ?, 'user', 'approved')");
-            $stmt->execute([$name, $email, $phone, $hashed_password]);
-            $user_id = $pdo->lastInsertId();
-
-            // ✅ Send email with temp password
-            $subject = "Your Photo Directory Access";
-            $message = "
-                <h2>Welcome to Photo Directory</h2>
-                <p>Your account has been created by Admin.</p>
-                <p><strong>Email:</strong> $email</p>
-                <p><strong>Temporary Password:</strong> $temp_password</p>
-                <p><a href='".BASE_URL."auth/login.php'>Login Here</a></p>
-            ";
-            $headers = "MIME-Version: 1.0\r\n";
-            $headers .= "Content-type:text/html;charset=UTF-8\r\n";
-            $headers .= "From: no-reply@photodirectory.com\r\n";
-
-            mail($email, $subject, $message, $headers);
+    if (!$error) {
+        // ✅ Handle photo upload
+        $photo_name = 'default.jpg';
+        if (!empty($_FILES['family_photo']['name'])) {
+            $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
+            $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
+            $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
+            move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
         }
 
-        // ✅ Insert into members table
-        $stmt = $pdo->prepare("INSERT INTO members (user_id, family_photo, spouse_name, spouse_phone, spouse_email) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$user_id, $photo_name, $spouse_name, $spouse_phone, $spouse_email]);
-        $member_id = $pdo->lastInsertId();
+        try {
+            $pdo->beginTransaction();
+            $user_id = null;
 
-        // ✅ Insert children
-        if (!empty($children)) {
-            $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
-            foreach ($children as $child_name) {
-                if (!empty(trim($child_name))) {
-                    $child_stmt->execute([$member_id, trim($child_name)]);
+            // ✅ Create user if email OR phone exists
+            if (!empty($emailValue) || !empty($phoneValue)) {
+                $temp_password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
+                $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
+
+                $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, password, role, status) VALUES (?, ?, ?, ?, 'user', 'approved')");
+                $stmt->execute([$name, $emailValue, $phoneValue, $hashed_password]);
+                $user_id = $pdo->lastInsertId();
+
+                // ✅ Send email if email exists
+                if (!empty($emailValue)) {
+                    $subject = "Your Photo Directory Access";
+                    $message = "
+                        <h2>Welcome to Photo Directory</h2>
+                        <p>Your account has been created by Admin.</p>
+                        <p><strong>Email:</strong> $emailValue</p>
+                        <p><strong>Temporary Password:</strong> $temp_password</p>
+                        <p><a href='" . BASE_URL . "auth/login.php'>Login Here</a></p>
+                    ";
+                    $headers = "MIME-Version: 1.0\r\n";
+                    $headers .= "Content-type:text/html;charset=UTF-8\r\n";
+                    $headers .= "From: no-reply@photodirectory.com\r\n";
+
+                    @mail($emailValue, $subject, $message, $headers);
                 }
             }
-        }
 
-        $pdo->commit();
-        $success = "Member added successfully.";
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $error = "Error: " . $e->getMessage();
+            // ✅ Insert member
+            $stmt = $pdo->prepare("INSERT INTO members (user_id, family_photo, spouse_name, spouse_phone, spouse_email) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $user_id,
+                $photo_name,
+                !empty($spouse_name) ? $spouse_name : null,
+                !empty($spouse_phone) ? $spouse_phone : null,
+                !empty($spouse_email) ? $spouse_email : null
+            ]);
+            $member_id = $pdo->lastInsertId();
+
+            // ✅ Insert children
+            if (!empty($children)) {
+                $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
+                foreach ($children as $child_name) {
+                    if (!empty(trim($child_name))) {
+                        $child_stmt->execute([$member_id, trim($child_name)]);
+                    }
+                }
+            }
+
+            $pdo->commit();
+            $success = "Member added successfully.";
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = "Error: " . $e->getMessage();
+            error_log("Transaction failed: " . $e->getMessage());
+        }
     }
 }
 ?>
@@ -95,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?php echo $success; ?></div><?php endif; ?>
 
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" id="addMemberForm" novalidate>
             <div class="mb-3">
                 <label>Family Photo</label>
                 <input type="file" name="family_photo" class="form-control" accept="image/*" onchange="previewImage(event)">
@@ -104,17 +137,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="mb-3">
                 <label>Primary Member Name</label>
-                <input type="text" name="name" class="form-control" required>
+                <input type="text" name="name" id="name" class="form-control">
+                <div class="invalid-feedback">Primary member name is required.</div>
             </div>
 
             <div class="mb-3">
                 <label>Phone</label>
-                <input type="text" name="phone" class="form-control" required>
+                <input type="text" name="phone" id="phone" class="form-control">
+                <div class="invalid-feedback">Please provide a phone number or an email.</div>
             </div>
 
             <div class="mb-3">
-                <label>Email (optional)</label>
-                <input type="email" name="email" class="form-control">
+                <label>Email</label>
+                <input type="email" name="email" id="email" class="form-control">
+                <div class="invalid-feedback">Please provide a phone number or an email.</div>
             </div>
 
             <h5>Spouse Details</h5>
@@ -160,6 +196,35 @@ function previewImage(event) {
     }
     reader.readAsDataURL(event.target.files[0]);
 }
+
+// ✅ Client-side validation
+document.getElementById("addMemberForm").addEventListener("submit", function(e) {
+    let valid = true;
+    const name = document.getElementById("name");
+    const phone = document.getElementById("phone");
+    const email = document.getElementById("email");
+
+    [name, phone, email].forEach(field => field.classList.remove("is-invalid"));
+
+    if (name.value.trim() === "") {
+        name.classList.add("is-invalid");
+        valid = false;
+    }
+
+    if (phone.value.trim() === "" && email.value.trim() === "") {
+        phone.classList.add("is-invalid");
+        email.classList.add("is-invalid");
+        valid = false;
+    }
+
+    if (!valid) e.preventDefault();
+});
+
+["name", "phone", "email"].forEach(id => {
+    document.getElementById(id).addEventListener("input", function() {
+        this.classList.remove("is-invalid");
+    });
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

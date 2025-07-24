@@ -10,7 +10,7 @@ $member_id = intval($_GET['id']);
 
 // Fetch member details
 $stmt = $pdo->prepare("
-    SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
+    SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id, u.role AS user_role
     FROM members m
     LEFT JOIN users u ON m.user_id = u.id
     WHERE m.id = ?
@@ -43,53 +43,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_phone = trim($_POST['spouse_phone']);
     $spouse_email = trim($_POST['spouse_email']);
     $children_input = isset($_POST['children']) ? $_POST['children'] : [];
+    $make_admin = isset($_POST['make_admin']) ? true : false;
 
-    // ✅ Handle photo upload without resizing
+    // ✅ Validation
+    if (empty($name)) {
+        $error = "Primary member name is required.";
+    } elseif (empty($email) && empty($phone)) {
+        $error = "Please provide either an Email or a Phone number.";
+    }
+
+    $emailValue = !empty($email) ? $email : null;
+    $phoneValue = !empty($phone) ? $phone : null;
+
+    // ✅ Check for duplicates in users table (excluding current user)
+    if (!$error && $member['user_id']) {
+        $check = $pdo->prepare("SELECT id FROM users WHERE (email = ? OR phone = ?) AND id != ?");
+        $check->execute([$emailValue, $phoneValue, $member['user_id']]);
+        if ($check->fetch()) {
+            $error = "Email or Phone already exists for another user.";
+        }
+    }
+
+    // ✅ Handle photo upload
     $photo_name = $member['family_photo'];
-    if (!empty($_FILES['family_photo']['name'])) {
+    if (!$error && !empty($_FILES['family_photo']['name'])) {
         $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
         $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
         $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
 
         if (move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
-            // ✅ Delete old photo if exists
             if ($member['family_photo'] && file_exists(__DIR__ . '/../assets/images/uploads/' . $member['family_photo'])) {
                 unlink(__DIR__ . '/../assets/images/uploads/' . $member['family_photo']);
             }
         }
     }
 
-    try {
-        $pdo->beginTransaction();
+    if (!$error) {
+        try {
+            $pdo->beginTransaction();
 
-        // Update user info if exists
-        if ($member['user_id']) {
-            $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=? WHERE id=?");
-            $stmt->execute([$name, $phone, $email, $member['user_id']]);
-        }
+            // ✅ Update user info if linked
+            if ($member['user_id']) {
+                $role = $make_admin ? 'admin' : 'user';
+                $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, role=? WHERE id=?");
+                $stmt->execute([$name, $phoneValue, $emailValue, $role, $member['user_id']]);
+            }
 
-        // Update member details
-        $stmt = $pdo->prepare("UPDATE members SET family_photo=?, spouse_name=?, spouse_phone=?, spouse_email=? WHERE id=?");
-        $stmt->execute([$photo_name, $spouse_name, $spouse_phone, $spouse_email, $member_id]);
+            // ✅ Update member info
+            $stmt = $pdo->prepare("UPDATE members SET family_photo=?, spouse_name=?, spouse_phone=?, spouse_email=? WHERE id=?");
+            $stmt->execute([
+                $photo_name,
+                !empty($spouse_name) ? $spouse_name : null,
+                !empty($spouse_phone) ? $spouse_phone : null,
+                !empty($spouse_email) ? $spouse_email : null,
+                $member_id
+            ]);
 
-        // Delete old children
-        $pdo->prepare("DELETE FROM children WHERE member_id=?")->execute([$member_id]);
-
-        // Insert new children
-        if (!empty($children_input)) {
-            $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
-            foreach ($children_input as $child_name) {
-                if (!empty(trim($child_name))) {
-                    $child_stmt->execute([$member_id, trim($child_name)]);
+            // ✅ Update children
+            $pdo->prepare("DELETE FROM children WHERE member_id=?")->execute([$member_id]);
+            if (!empty($children_input)) {
+                $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
+                foreach ($children_input as $child_name) {
+                    if (!empty(trim($child_name))) {
+                        $child_stmt->execute([$member_id, trim($child_name)]);
+                    }
                 }
             }
-        }
 
-        $pdo->commit();
-        $success = "Member details updated successfully.";
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $error = "Error: " . $e->getMessage();
+            $pdo->commit();
+            $success = "Member details updated successfully.";
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = "Error: " . $e->getMessage();
+        }
     }
 }
 ?>
@@ -116,11 +142,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <div class="mb-3">
             <label>Phone</label>
-            <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($member['primary_phone']); ?>" required>
+            <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($member['primary_phone']); ?>">
         </div>
         <div class="mb-3">
             <label>Email</label>
-            <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($member['primary_email']); ?>">
+            <input type="email" name="email" class="form-control" 
+                value="<?php echo htmlspecialchars($member['primary_email']); ?>" 
+                <?php echo !empty($member['primary_email']) ? 'readonly' : ''; ?>>
         </div>
 
         <h5>Spouse Details</h5>
@@ -144,6 +172,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endforeach; ?>
         </div>
         <button type="button" class="btn btn-secondary mb-3" onclick="addChild()">Add Child</button>
+
+        <?php if (isAdmin()): ?>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" name="make_admin" id="makeAdmin" <?php echo ($member['user_role'] === 'admin') ? 'checked' : ''; ?>>
+            <label for="makeAdmin" class="form-check-label">Make this user an Admin</label>
+        </div>
+        <?php endif; ?>
 
         <button type="submit" class="btn btn-primary w-100">Update Member</button>
     </form>
