@@ -2,7 +2,7 @@
 // Detect environment
 if ($_SERVER['HTTP_HOST'] === 'localhost') {
     // Local Config
-    define('SITE_NAME', 'Photo Directory (Local)');
+    define('SITE_NAME', 'St. Timothy Anglican Church');
     define('BASE_URL', 'http://localhost/photo-directory/');
     define('DB_HOST', 'localhost');
     define('DB_USER', 'root');
@@ -10,7 +10,7 @@ if ($_SERVER['HTTP_HOST'] === 'localhost') {
     define('DB_NAME', 'photo_directory');
 } else {
     // Live Config
-    define('SITE_NAME', 'Photo Directory');
+    define('SITE_NAME', 'St. Timothy Anglican Church');
     define('BASE_URL', 'http://svkzone.com/photo_directory/');
     define('DB_HOST', 'localhost');
     define('DB_USER', 'u522900848_directory');  

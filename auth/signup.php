@@ -105,12 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="mb-3">
-                        <label>Name (Primary Member)</label>
+                        <label>Name (Primary Member)*</label>
                         <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($name ?? ''); ?>" required>
                     </div>
 
                     <div class="mb-3">
-                        <label>Email</label>
+                        <label>Email*</label>
                         <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($email ?? ''); ?>" required>
                     </div>
 
@@ -120,12 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="mb-3">
-                        <label>Password</label>
+                        <label>Password*</label>
                         <input type="password" name="password" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
-                        <label>Confirm Password</label>
+                        <label>Confirm Password*</label>
                         <input type="password" name="confirm_password" class="form-control" required>
                     </div>
 

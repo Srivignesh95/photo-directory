@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/../includes/header.php';
 checkAuth();
 
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -78,15 +78,15 @@ $members = $stmt->fetchAll();
                     <?php echo json_encode($member["spouse_phone"]); ?>,
                     <?php echo json_encode($member["spouse_email"]); ?>,
                     <?php echo json_encode($children); ?>,
-                    <?php echo json_encode($member["family_photo"] ? "assets/images/uploads/".$member["family_photo"] : "assets/images/default.jpg"); ?>,
-                    <?php echo json_encode(isAdmin() || $_SESSION["user_id"] == $member["user_id"] ? "admin/edit_member.php?id=".$member["id"] : ""); ?>,
-                    <?php echo json_encode(isAdmin() ? "admin/delete_member.php?id=".$member["id"] : ""); ?>,
+                    <?php echo json_encode($member["family_photo"] ? "../assets/images/uploads/".$member["family_photo"] : "assets/images/default.jpg"); ?>,
+                    <?php echo json_encode(isAdmin() || $_SESSION["user_id"] == $member["user_id"] ? "edit_member.php?id=".$member["id"] : ""); ?>,
+                    <?php echo json_encode(isAdmin() ? "delete_member.php?id=".$member["id"] : ""); ?>,
                     <?php echo (isAdmin() || $_SESSION["user_id"] == $member["user_id"]) ? 'true' : 'false'; ?>
                 )'>
 
                 
                 <!-- Family Photo -->
-                <img src="<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>" 
+                <img src="<?php echo $member['family_photo'] ? '../assets/images/uploads/' . htmlspecialchars($member['family_photo']) : '../assets/images/default.jpg'; ?>" 
                     alt="Family Photo" 
                     class="card-img-top" 
                     style="object-fit:cover; border-radius:8px;">
@@ -203,4 +203,4 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, c
 }
 </script>
 
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

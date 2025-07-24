@@ -48,10 +48,6 @@ $pending_count = $pdo->query("SELECT COUNT(*) FROM users WHERE status='pending'"
                     </div>
                 </div>
             </div>
-            <div class="mt-4">
-                <a href="export_excel.php" class="btn btn-success me-2">Export to Excel</a>
-                <a href="export_pdf.php" class="btn btn-danger">Export to PDF</a>
-            </div>
         </div>
         <p>Use the sidebar to manage users and members.</p>
     </div>
