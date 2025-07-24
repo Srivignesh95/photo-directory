@@ -25,6 +25,33 @@ $children = $child_stmt->fetchAll(PDO::FETCH_COLUMN);
 $error = '';
 $success = '';
 
+// ✅ Add image resize function
+function resizeImage($source, $destination, $targetWidth, $targetHeight) {
+    list($width, $height) = getimagesize($source);
+    $type = mime_content_type($source);
+
+    if ($type == 'image/jpeg') {
+        $image = imagecreatefromjpeg($source);
+    } elseif ($type == 'image/png') {
+        $image = imagecreatefrompng($source);
+    } else {
+        return false; // Unsupported format
+    }
+
+    $newImage = imagecreatetruecolor($targetWidth, $targetHeight);
+    imagecopyresampled($newImage, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+    if ($type == 'image/jpeg') {
+        imagejpeg($newImage, $destination, 90);
+    } elseif ($type == 'image/png') {
+        imagepng($newImage, $destination);
+    }
+
+    imagedestroy($image);
+    imagedestroy($newImage);
+    return true;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name']);
     $phone = trim($_POST['phone']);
@@ -34,13 +61,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_email = trim($_POST['spouse_email']);
     $children_input = isset($_POST['children']) ? $_POST['children'] : [];
 
+    // ✅ Handle photo upload
     $photo_name = $member['family_photo'];
     if (!empty($_FILES['family_photo']['name'])) {
-        $photo_name = time() . '_' . basename($_FILES['family_photo']['name']);
+        $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
+        $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
         $target_path = __DIR__ . '/assets/images/uploads/' . $photo_name;
-        move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
 
-        // Delete old photo
+        if (move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
+            resizeImage($target_path, $target_path, 400, 300);
+        }
+
+        // Delete old photo if exists
         if ($member['family_photo'] && file_exists(__DIR__ . '/assets/images/uploads/' . $member['family_photo'])) {
             unlink(__DIR__ . '/assets/images/uploads/' . $member['family_photo']);
         }
@@ -49,15 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
-        // Update user
+        // ✅ Update users table
         $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=? WHERE id=?");
         $stmt->execute([$name, $phone, $email, $user_id]);
 
-        // Update member
+        // ✅ Update members table
         $stmt = $pdo->prepare("UPDATE members SET family_photo=?, spouse_name=?, spouse_phone=?, spouse_email=? WHERE user_id=?");
         $stmt->execute([$photo_name, $spouse_name, $spouse_phone, $spouse_email, $user_id]);
 
-        // Update children
+        // ✅ Update children
         $pdo->prepare("DELETE FROM children WHERE member_id=?")->execute([$member['id']]);
         $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
         foreach ($children_input as $child_name) {
@@ -86,6 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="file" name="family_photo" class="form-control" onchange="previewImage(event)">
             <?php if ($member['family_photo']): ?>
                 <img id="photoPreview" src="assets/images/uploads/<?php echo $member['family_photo']; ?>" style="width:150px;margin-top:10px;">
+            <?php else: ?>
+                <img id="photoPreview" style="display:none;width:150px;margin-top:10px;">
             <?php endif; ?>
         </div>
         <div class="mb-3">

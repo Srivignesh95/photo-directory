@@ -8,6 +8,33 @@ if (!isAdmin()) {
 $error = '';
 $success = '';
 
+// ✅ Add image resize function (supports JPEG and PNG)
+function resizeImage($source, $destination, $targetWidth, $targetHeight) {
+    list($width, $height) = getimagesize($source);
+    $type = mime_content_type($source);
+
+    if ($type == 'image/jpeg') {
+        $image = imagecreatefromjpeg($source);
+    } elseif ($type == 'image/png') {
+        $image = imagecreatefrompng($source);
+    } else {
+        return false; // Unsupported type
+    }
+
+    $newImage = imagecreatetruecolor($targetWidth, $targetHeight);
+    imagecopyresampled($newImage, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+    if ($type == 'image/jpeg') {
+        imagejpeg($newImage, $destination, 90);
+    } elseif ($type == 'image/png') {
+        imagepng($newImage, $destination);
+    }
+
+    imagedestroy($image);
+    imagedestroy($newImage);
+    return true;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name']);
     $phone = trim($_POST['phone']);
@@ -17,12 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_email = trim($_POST['spouse_email']);
     $children = isset($_POST['children']) ? $_POST['children'] : [];
 
-    // Handle photo upload
+    // ✅ Handle photo upload
     $photo_name = '';
     if (!empty($_FILES['family_photo']['name'])) {
-        $photo_name = time() . '_' . basename($_FILES['family_photo']['name']);
+        $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
+        $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
         $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
-        move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
+
+        if (move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
+            resizeImage($target_path, $target_path, 400, 300); // ✅ Resize for consistency
+        }
     }
 
     try {
@@ -30,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $user_id = null;
         if ($email) {
-            // Create user with temp password
+            // ✅ Create user with temp password
             $temp_password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
             $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
 
@@ -38,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$name, $email, $phone, $hashed_password]);
             $user_id = $pdo->lastInsertId();
 
-            // Send email with temp password
+            // ✅ Send email with temp password
             $subject = "Your Photo Directory Access";
             $message = "
                 <h2>Welcome to Photo Directory</h2>
@@ -54,12 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mail($email, $subject, $message, $headers);
         }
 
-        // Insert into members table
+        // ✅ Insert into members table
         $stmt = $pdo->prepare("INSERT INTO members (user_id, family_photo, spouse_name, spouse_phone, spouse_email) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$user_id, $photo_name, $spouse_name, $spouse_phone, $spouse_email]);
         $member_id = $pdo->lastInsertId();
 
-        // Insert children
+        // ✅ Insert children
         if (!empty($children)) {
             $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
             foreach ($children as $child_name) {

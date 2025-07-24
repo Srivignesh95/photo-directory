@@ -44,16 +44,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $spouse_email = trim($_POST['spouse_email']);
     $children_input = isset($_POST['children']) ? $_POST['children'] : [];
 
+    function resizeImage($source, $destination, $targetWidth, $targetHeight) {
+    list($width, $height) = getimagesize($source);
+    $type = mime_content_type($source);
+
+    if ($type == 'image/jpeg') {
+        $image = imagecreatefromjpeg($source);
+    } elseif ($type == 'image/png') {
+        $image = imagecreatefrompng($source);
+    } else {
+        return false; // Unsupported type
+    }
+
+    $newImage = imagecreatetruecolor($targetWidth, $targetHeight);
+    imagecopyresampled($newImage, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+    if ($type == 'image/jpeg') {
+        imagejpeg($newImage, $destination, 90);
+    } elseif ($type == 'image/png') {
+        imagepng($newImage, $destination);
+    }
+
+    imagedestroy($image);
+    imagedestroy($newImage);
+    return true;
+    }
+
     // Photo upload
     $photo_name = $member['family_photo'];
     if (!empty($_FILES['family_photo']['name'])) {
         $photo_name = time() . '_' . basename($_FILES['family_photo']['name']);
-        $target_path = __DIR__ . '/assets/images/uploads/' . $photo_name;
+        $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
         move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
+        resizeImage($target_path, $target_path, 400, 300);
 
         // Remove old photo
-        if ($member['family_photo'] && file_exists(__DIR__ . '/assets/images/uploads/' . $member['family_photo'])) {
-            unlink(__DIR__ . '/assets/images/uploads/' . $member['family_photo']);
+        if ($member['family_photo'] && file_exists(__DIR__ . '/../assets/images/uploads/' . $member['family_photo'])) {
+            unlink(__DIR__ . '/../assets/images/uploads/' . $member['family_photo']);
         }
     }
 
@@ -105,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>Family Photo</label>
             <input type="file" name="family_photo" class="form-control" onchange="previewImage(event)">
             <?php if ($member['family_photo']): ?>
-                <img id="photoPreview" src="assets/images/uploads/<?php echo $member['family_photo']; ?>" style="width:150px;margin-top:10px;">
+                <img id="photoPreview" src="../assets/images/uploads/<?php echo $member['family_photo']; ?>" style="width:150px;margin-top:10px;">
             <?php else: ?>
                 <img id="photoPreview" style="display:none;width:150px;margin-top:10px;">
             <?php endif; ?>
@@ -172,4 +199,4 @@ function previewImage(event) {
 }
 </script>
 
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

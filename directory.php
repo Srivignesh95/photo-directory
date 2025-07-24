@@ -2,17 +2,62 @@
 require_once __DIR__ . '/includes/header.php';
 checkAuth();
 
-// Fetch all members (joined with users table)
-$stmt = $pdo->query("
-    SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
-    FROM members m
-    LEFT JOIN users u ON m.user_id = u.id
-    ORDER BY u.name ASC
-");
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$limit = 6; // Members per page
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? intval($_GET['page']) : 1;
+$offset = ($page - 1) * $limit;
+
+// Count total members for pagination
+if ($search) {
+    $count_stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM members m
+        LEFT JOIN users u ON m.user_id = u.id
+        WHERE u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?
+    ");
+    $count_stmt->execute(['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']);
+} else {
+    $count_stmt = $pdo->query("SELECT COUNT(*) FROM members");
+}
+$total_members = $count_stmt->fetchColumn();
+$total_pages = ceil($total_members / $limit);
+
+// Fetch members
+if ($search) {
+    $stmt = $pdo->prepare("
+        SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
+        FROM members m
+        LEFT JOIN users u ON m.user_id = u.id
+        WHERE u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?
+        ORDER BY u.name ASC
+        LIMIT $limit OFFSET $offset
+    ");
+    $stmt->execute(['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']);
+} else {
+    $stmt = $pdo->prepare("
+        SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
+        FROM members m
+        LEFT JOIN users u ON m.user_id = u.id
+        ORDER BY u.name ASC
+        LIMIT $limit OFFSET $offset
+    ");
+    $stmt->execute();
+}
 $members = $stmt->fetchAll();
 ?>
 
 <h3 class="mb-4">Photo Directory</h3>
+
+<!-- Search Form -->
+<form method="GET" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by Name, Email, or Phone">
+        <button class="btn btn-primary" type="submit">Search</button>
+        <?php if ($search): ?>
+            <a href="members.php" class="btn btn-secondary">Reset</a>
+        <?php endif; ?>
+    </div>
+</form>
+
 
 <div class="row">
     <?php foreach ($members as $member): ?>
@@ -58,6 +103,26 @@ $members = $stmt->fetchAll();
             </div>
         </div>
     <?php endforeach; ?>
+    <nav>
+        <ul class="pagination justify-content-center">
+            <!-- Previous -->
+            <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+                <a class="page-link" href="?search=<?php echo urlencode($search); ?>&page=<?php echo $page - 1; ?>">Previous</a>
+            </li>
+
+            <!-- Page Numbers -->
+            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                    <a class="page-link" href="?search=<?php echo urlencode($search); ?>&page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                </li>
+            <?php endfor; ?>
+
+            <!-- Next -->
+            <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
+                <a class="page-link" href="?search=<?php echo urlencode($search); ?>&page=<?php echo $page + 1; ?>">Next</a>
+            </li>
+        </ul>
+    </nav>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
