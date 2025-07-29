@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$error) {
         // ✅ Handle photo upload
-        $photo_name = 'default.jpg';
+        $photo_name = 'default.png';
         if (!empty($_FILES['family_photo']['name'])) {
             $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
             $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
