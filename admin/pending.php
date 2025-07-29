@@ -20,12 +20,25 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
         $user = $user_stmt->fetch();
 
         // Send approval email
-        $subject = "Your Account is Approved";
+        $subject = "Welcome to Photo Directory – Your Account Has Been Approved!";
         $message = "
-            <h2>Congratulations!</h2>
-            <p>Your account has been approved. You can now login and access the directory.</p>
-            <p><a href='".BASE_URL."auth/login.php'>Login Now</a></p>
+            <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
+                <h2 style='color: #2a7ae2;'>Hi " . htmlspecialchars($user['name']) . ",</h2>
+                <p>We're excited to let you know that your account for the <strong>Photo Directory</strong> has been approved by an administrator.</p>
+
+                <p>You can now log in and access the directory:</p>
+                <p style='margin: 20px 0;'>
+                    <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to Photo Directory</a>
+                </p>
+
+                <p>If you were provided with a temporary password earlier, you can use that to log in. We recommend changing your password once logged in.</p>
+
+                <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
+
+                <p style='font-size: 12px; color: #888;'>Thank you,<br>The Photo Directory Team</p>
+            </div>
         ";
+
         $headers = "MIME-Version: 1.0" . "\r\n";
         $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
         $headers .= "From: no-reply@photodirectory.com" . "\r\n";
