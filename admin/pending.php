@@ -31,8 +31,6 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
                     <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to Photo Directory</a>
                 </p>
 
-                <p>If you were provided with a temporary password earlier, you can use that to log in. We recommend changing your password once logged in.</p>
-
                 <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
 
                 <p style='font-size: 12px; color: #888;'>Thank you,<br>The Photo Directory Team</p>
