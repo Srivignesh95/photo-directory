@@ -65,14 +65,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // ✅ Send email if email exists
                 if (!empty($emailValue)) {
-                    $subject = "Your Photo Directory Access";
+                    $subject = "Welcome to Photo Directory!";
                     $message = "
-                        <h2>Welcome to Photo Directory</h2>
-                        <p>Your account has been created by Admin.</p>
-                        <p><strong>Email:</strong> $emailValue</p>
-                        <p><strong>Temporary Password:</strong> $temp_password</p>
-                        <p><a href='" . BASE_URL . "auth/login.php'>Login Here</a></p>
+                        <div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f7f7f7; color: #333;'>
+                            <h2 style='color: #2a7ae2;'>Welcome to Photo Directory!</h2>
+                            <p>Your account has been created by an administrator.</p>
+                            <p><strong>Here are your login details:</strong></p>
+                            <ul style='line-height: 1.6;'>
+                                <li><strong>Email:</strong> $emailValue</li>
+                                <li><strong>Temporary Password:</strong> $temp_password</li>
+                            </ul>
+                            <p style='margin: 20px 0;'>
+                                <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to Photo Directory</a>
+                            </p>
+                            <p><em>We recommend changing your password after logging in.</em></p>
+                            <hr style='border: none; border-top: 1px solid #ccc;'>
+                            <p style='font-size: 12px; color: #888;'>Thank you,<br>Photo Directory Team</p>
+                        </div>
                     ";
+
                     $headers = "MIME-Version: 1.0\r\n";
                     $headers .= "Content-type:text/html;charset=UTF-8\r\n";
                     $headers .= "From: no-reply@photodirectory.com\r\n";

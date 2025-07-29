@@ -24,13 +24,15 @@ if ($search) {
 $total_members = $count_stmt->fetchColumn();
 $total_pages = ceil($total_members / $limit);
 
+$sort = isset($_GET['sort']) && $_GET['sort'] === 'DESC' ? 'DESC' : 'ASC'; // Default ASC
+
 if ($search) {
     $stmt = $pdo->prepare("
         SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
         WHERE (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?) AND u.status = 'approved'
-        ORDER BY u.name ASC
+        ORDER BY u.name $sort
         LIMIT $limit OFFSET $offset
     ");
     $stmt->execute(['%' . $search . '%', '%' . $search . '%', '%' . $search . '%']);
@@ -40,27 +42,38 @@ if ($search) {
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
         WHERE u.status = 'approved'
-        ORDER BY u.name ASC
+        ORDER BY u.name $sort
         LIMIT $limit OFFSET $offset
     ");
     $stmt->execute();
 }
 
+
 $members = $stmt->fetchAll();
 ?>
 
 <h3 class="mb-4">Photo Directory</h3>
-
-<form method="GET" class="mb-4">
-    <div class="input-group">
-        <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by Name">
-        <button class="btn btn-primary" type="submit">Search</button>
-        <?php if ($search): ?>
-            <a href="members.php" class="btn btn-secondary">Reset</a>
-        <?php endif; ?>
-    </div>
-</form>
-
+<div class="row">
+    <form method="GET" class="mb-4">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" class="form-control" placeholder="Search by Name">
+            </div>
+            <div class="col-md-3">
+                <select name="sort" class="form-select">
+                    <option value="ASC" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'ASC') ? 'selected' : ''; ?>>Name (A → Z)</option>
+                    <option value="DESC" <?php echo (isset($_GET['sort']) && $_GET['sort'] === 'DESC') ? 'selected' : ''; ?>>Name (Z → A)</option>
+                </select>
+            </div>
+            <div class="col-md-5 d-flex">
+                <button class="btn btn-primary me-2" type="submit">Apply</button>
+                <?php if ($search || isset($_GET['sort'])): ?>
+                    <a href="members.php" class="btn btn-secondary">Reset</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </form>
+</div>
 <div class="row">
     <?php foreach ($members as $member): ?>
         <?php
@@ -78,7 +91,7 @@ $members = $stmt->fetchAll();
                     <?php echo json_encode($member["spouse_phone"]); ?>,
                     <?php echo json_encode($member["spouse_email"]); ?>,
                     <?php echo json_encode($children); ?>,
-                    <?php echo json_encode($member["family_photo"] ? "../assets/images/uploads/".$member["family_photo"] : "assets/images/default.jpg"); ?>,
+                    <?php echo json_encode($member["family_photo"] ? "../assets/images/uploads/".$member["family_photo"] : "../assets/images/default.jpg"); ?>,
                     <?php echo json_encode(isAdmin() || $_SESSION["user_id"] == $member["user_id"] ? "edit_member.php?id=".$member["id"] : ""); ?>,
                     <?php echo json_encode(isAdmin() ? "delete_member.php?id=".$member["id"] : ""); ?>,
                     <?php echo (isAdmin() || $_SESSION["user_id"] == $member["user_id"]) ? 'true' : 'false'; ?>
@@ -111,7 +124,8 @@ $members = $stmt->fetchAll();
         </li>
         <?php for ($i = 1; $i <= $total_pages; $i++): ?>
             <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                <a class="page-link" href="?search=<?php echo urlencode($search); ?>&page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                <a class="page-link" href="?search=<?php echo urlencode($search); ?>&sort=<?php echo urlencode($sort); ?>&page=<?php echo $i; ?>"><?php echo $i; ?></a>
+
             </li>
         <?php endfor; ?>
         <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
