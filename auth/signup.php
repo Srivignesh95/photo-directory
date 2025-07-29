@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Email already exists.";
             } else {
                 // ✅ Handle photo upload
-                $photo_name = 'default.jpg';
+                $photo_name = 'default.png';
                 if (!empty($_FILES['family_photo']['name'])) {
                     $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
                     $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="mb-3">
                         <label>Family Photo</label>
                         <input type="file" name="family_photo" class="form-control" accept="image/*">
-                        <?php if (!empty($photo_name) && $photo_name != 'default.jpg'): ?>
+                        <?php if (!empty($photo_name) && $photo_name != 'default.png'): ?>
                             <p class="text-muted">Photo already uploaded: <?php echo htmlspecialchars($photo_name); ?></p>
                         <?php endif; ?>
                     </div>
