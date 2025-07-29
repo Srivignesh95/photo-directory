@@ -91,7 +91,7 @@ $members = $stmt->fetchAll();
                     <?php echo json_encode($member["spouse_phone"]); ?>,
                     <?php echo json_encode($member["spouse_email"]); ?>,
                     <?php echo json_encode($children); ?>,
-                    <?php echo json_encode($member["family_photo"] ? "assets/images/uploads/".$member["family_photo"] : "assets/images/default.jpg"); ?>,
+                    <?php echo json_encode($member["family_photo"] ? "assets/images/uploads/".$member["family_photo"] : "assets/images/default.png"); ?>,
                     <?php echo json_encode(isAdmin() || $_SESSION["user_id"] == $member["user_id"] ? "admin/edit_member.php?id=".$member["id"] : ""); ?>,
                     <?php echo json_encode(isAdmin() ? "admin/delete_member.php?id=".$member["id"] : ""); ?>,
                     <?php echo (isAdmin() || $_SESSION["user_id"] == $member["user_id"]) ? 'true' : 'false'; ?>
@@ -99,7 +99,7 @@ $members = $stmt->fetchAll();
 
                 
                 <!-- Family Photo -->
-                <img src="<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.jpg'; ?>" 
+                <img src="<?php echo $member['family_photo'] ? 'assets/images/uploads/' . htmlspecialchars($member['family_photo']) : 'assets/images/default.png'; ?>" 
                     alt="Family Photo" 
                     class="card-img-top" 
                     style="object-fit:cover; border-radius:8px;">
