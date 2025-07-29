@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p>We received a request to reset your password for the <strong>Photo Directory</strong>.</p>
                     <p>Click the button below to create a new password:</p>
 
-                    <p style='margin: 20px 0; text-align: center;'>
+                    <p style='margin: 20px 0;'>
                         <a href='$reset_link' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Reset Password</a>
                     </p>
 

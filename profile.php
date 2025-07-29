@@ -59,7 +59,9 @@ $children = $child_stmt->fetchAll(PDO::FETCH_COLUMN);
         </div>
         <div class="mt-3 text-end">
             <a href="admin/edit_member.php?id=<?php echo $member['id']; ?>" class="btn btn-primary">Edit Profile</a>
+            <a href="auth/reset_password_self.php" class="btn btn-warning ms-2">Reset Password</a>
         </div>
+        
     </div>
 </div>
 
