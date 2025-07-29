@@ -24,12 +24,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Send email
             $reset_link = BASE_URL . "auth/reset_password.php?token=$token";
 
-            $subject = "Password Reset Request";
+            $subject = "Reset Your Password – Photo Directory";
+
             $message = "
-                <h2>Password Reset</h2>
-                <p>Click the link below to reset your password:</p>
-                <p><a href='$reset_link'>$reset_link</a></p>
-                <p>This link will expire in 1 hour.</p>
+                <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
+                    <h2 style='color: #2a7ae2;'>Forgot Your Password?</h2>
+                    <p>We received a request to reset your password for the <strong>Photo Directory</strong>.</p>
+                    <p>Click the button below to create a new password:</p>
+
+                    <p style='margin: 20px 0; text-align: center;'>
+                        <a href='$reset_link' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Reset Password</a>
+                    </p>
+
+                    <p>If the button doesn't work, you can also use this link:</p>
+                    <p><a href='$reset_link'>$reset_link</a></p>
+
+                    <p><strong>Note:</strong> This link will expire in 1 hour for your security.</p>
+
+                    <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
+
+                    <p style='font-size: 12px; color: #888;'>If you didn't request this, you can ignore this email or contact support.</p>
+                    <p style='font-size: 12px; color: #888;'>– The Photo Directory Team</p>
+                </div>
             ";
 
             $headers = "MIME-Version: 1.0\r\n";
