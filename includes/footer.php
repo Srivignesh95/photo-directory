@@ -1,5 +1,5 @@
 </div>
-<footer class="bg-dark text-light pt-5 pb-3 mt-auto">
+<footer class="bg-dark text-light pt-5 pb-3 mt-5">
     <div class="container">
         <div class="row g-4">
             <!-- Logo -->
