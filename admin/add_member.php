@@ -11,14 +11,38 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $error = '';
 $success = '';
 
+// Keep submitted values to repopulate the form after POST
+$posted = [
+    'name'            => '',
+    'phone'           => '',
+    'email'           => '',
+    'spouse_name'     => '',
+    'spouse_phone'    => '',
+    'spouse_email'    => '',
+    'mailing_address' => ''
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = trim($_POST['name']);
-    $phone = trim($_POST['phone']);
-    $email = trim($_POST['email']);
-    $spouse_name = trim($_POST['spouse_name']);
-    $spouse_phone = trim($_POST['spouse_phone']);
-    $spouse_email = trim($_POST['spouse_email']);
-    $children = isset($_POST['children']) ? $_POST['children'] : [];
+    // Read inputs
+    $name            = trim($_POST['name'] ?? '');
+    $phone           = trim($_POST['phone'] ?? '');
+    $email           = trim($_POST['email'] ?? '');
+    $spouse_name     = trim($_POST['spouse_name'] ?? '');
+    $spouse_phone    = trim($_POST['spouse_phone'] ?? '');
+    $spouse_email    = trim($_POST['spouse_email'] ?? '');
+    $mailing_address = trim($_POST['mailing_address'] ?? '');
+    $children        = isset($_POST['children']) ? $_POST['children'] : [];
+
+    // Store for sticky form values
+    $posted = [
+        'name'            => $name,
+        'phone'           => $phone,
+        'email'           => $email,
+        'spouse_name'     => $spouse_name,
+        'spouse_phone'    => $spouse_phone,
+        'spouse_email'    => $spouse_email,
+        'mailing_address' => $mailing_address
+    ];
 
     // ✅ Validation
     if (empty($name)) {
@@ -33,8 +57,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ✅ Check for duplicates before starting transaction
     if (!$error && (!empty($emailValue) || !empty($phoneValue))) {
-        $check = $pdo->prepare("SELECT id FROM users WHERE email = ? OR phone = ?");
-        $check->execute([$emailValue, $phoneValue]);
+        $checkSql = "SELECT id FROM users WHERE ";
+        $params   = [];
+        $clauses  = [];
+        if (!empty($emailValue)) {
+            $clauses[] = "email = ?";
+            $params[]  = $emailValue;
+        }
+        if (!empty($phoneValue)) {
+            $clauses[] = "phone = ?";
+            $params[]  = $phoneValue;
+        }
+        $checkSql .= implode(" OR ", $clauses);
+        $check = $pdo->prepare($checkSql);
+        $check->execute($params);
         if ($check->fetch()) {
             $error = "Email or Phone already exists. Cannot create a new user.";
         }
@@ -45,18 +81,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $photo_name = 'default.png';
         if (!empty($_FILES['family_photo']['name'])) {
             $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
-            $photo_name = time() . '_' . uniqid() . '.' . $photo_ext;
-            $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
-            move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path);
+            $photo_ext = strtolower($photo_ext);
+            // Basic allowlist (optional)
+            $allowed = ['jpg','jpeg','png','gif','webp'];
+            if (!in_array($photo_ext, $allowed)) {
+                $error = "Unsupported image type. Allowed: JPG, PNG, GIF, WEBP.";
+            } else {
+                $photo_name = time() . '_' . uniqid('', true) . '.' . $photo_ext;
+                $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
+                if (!@move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
+                    $error = "Failed to upload the photo.";
+                }
+            }
         }
+    }
 
+    if (!$error) {
         try {
             $pdo->beginTransaction();
             $user_id = null;
 
             // ✅ Create user if email OR phone exists
             if (!empty($emailValue) || !empty($phoneValue)) {
-                $temp_password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
+                $temp_password   = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
                 $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
 
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, password, role, status) VALUES (?, ?, ?, ?, 'user', 'approved')");
@@ -72,8 +119,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <p>Your account has been created by an administrator.</p>
                             <p><strong>Here are your login details:</strong></p>
                             <ul style='line-height: 1.6;'>
-                                <li><strong>Email:</strong> $emailValue</li>
-                                <li><strong>Temporary Password:</strong> $temp_password</li>
+                                <li><strong>Email:</strong> {$emailValue}</li>
+                                <li><strong>Temporary Password:</strong> {$temp_password}</li>
                             </ul>
                             <p style='margin: 20px 0;'>
                                 <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to Photo Directory</a>
@@ -84,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     ";
 
-                    $headers = "MIME-Version: 1.0\r\n";
+                    $headers  = "MIME-Version: 1.0\r\n";
                     $headers .= "Content-type:text/html;charset=UTF-8\r\n";
                     $headers .= "From: no-reply@photodirectory.com\r\n";
 
@@ -92,14 +139,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // ✅ Insert member
-            $stmt = $pdo->prepare("INSERT INTO members (user_id, family_photo, spouse_name, spouse_phone, spouse_email) VALUES (?, ?, ?, ?, ?)");
+            // ✅ Insert member (with mailing_address)
+            $stmt = $pdo->prepare("
+                INSERT INTO members (
+                    user_id, family_photo, spouse_name, spouse_phone, spouse_email, mailing_address
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
             $stmt->execute([
                 $user_id,
                 $photo_name,
                 !empty($spouse_name) ? $spouse_name : null,
                 !empty($spouse_phone) ? $spouse_phone : null,
-                !empty($spouse_email) ? $spouse_email : null
+                !empty($spouse_email) ? $spouse_email : null,
+                !empty($mailing_address) ? $mailing_address : null
             ]);
             $member_id = $pdo->lastInsertId();
 
@@ -115,6 +168,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->commit();
             $success = "Member added successfully.";
+            // Clear sticky values on success
+            $posted = [
+                'name'            => '',
+                'phone'           => '',
+                'email'           => '',
+                'spouse_name'     => '',
+                'spouse_phone'    => '',
+                'spouse_email'    => '',
+                'mailing_address' => ''
+            ];
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error: " . $e->getMessage();
@@ -122,6 +185,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Helper to safely echo values
+function h($v) { return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); }
 ?>
 
 <div class="row">
@@ -136,8 +202,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="col-md-9">
         <h3>Add New Member</h3>
-        <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
-        <?php if ($success): ?><div class="alert alert-success"><?php echo $success; ?></div><?php endif; ?>
+        <?php if ($error): ?>
+            <div class="alert alert-danger"><?php echo h($error); ?></div>
+        <?php endif; ?>
+        <?php if ($success): ?>
+            <div class="alert alert-success"><?php echo h($success); ?></div>
+        <?php endif; ?>
 
         <form method="POST" enctype="multipart/form-data" id="addMemberForm" novalidate>
             <div class="mb-3">
@@ -148,34 +218,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="mb-3">
                 <label>Primary Member Name</label>
-                <input type="text" name="name" id="name" class="form-control">
+                <input type="text" name="name" id="name" class="form-control" value="<?php echo h($posted['name']); ?>">
                 <div class="invalid-feedback">Primary member name is required.</div>
             </div>
 
             <div class="mb-3">
                 <label>Phone</label>
-                <input type="text" name="phone" id="phone" class="form-control">
+                <input type="text" name="phone" id="phone" class="form-control" value="<?php echo h($posted['phone']); ?>">
                 <div class="invalid-feedback">Please provide a phone number or an email.</div>
             </div>
 
             <div class="mb-3">
                 <label>Email</label>
-                <input type="email" name="email" id="email" class="form-control">
+                <input type="email" name="email" id="email" class="form-control" value="<?php echo h($posted['email']); ?>">
                 <div class="invalid-feedback">Please provide a phone number or an email.</div>
+            </div>
+
+            <!-- ✅ New: Mailing Address -->
+            <div class="mb-3">
+                <label>Mailing Address</label>
+                <textarea name="mailing_address" id="mailing_address" class="form-control" rows="3" placeholder="Street, City, Province/State, Postal/ZIP, Country"><?php echo h($posted['mailing_address']); ?></textarea>
+                <!-- Make required if you want: add invalid-feedback and client-side rule -->
             </div>
 
             <h5>Spouse Details</h5>
             <div class="mb-3">
                 <label>Name</label>
-                <input type="text" name="spouse_name" class="form-control">
+                <input type="text" name="spouse_name" class="form-control" value="<?php echo h($posted['spouse_name']); ?>">
             </div>
             <div class="mb-3">
                 <label>Phone</label>
-                <input type="text" name="spouse_phone" class="form-control">
+                <input type="text" name="spouse_phone" class="form-control" value="<?php echo h($posted['spouse_phone']); ?>">
             </div>
             <div class="mb-3">
                 <label>Email</label>
-                <input type="email" name="spouse_email" class="form-control">
+                <input type="email" name="spouse_email" class="form-control" value="<?php echo h($posted['spouse_email']); ?>">
             </div>
 
             <h5>Children</h5>
@@ -205,13 +282,15 @@ function previewImage(event) {
         img.src = reader.result;
         img.style.display = 'block';
     }
-    reader.readAsDataURL(event.target.files[0]);
+    if (event.target.files && event.target.files[0]) {
+        reader.readAsDataURL(event.target.files[0]);
+    }
 }
 
 // ✅ Client-side validation
 document.getElementById("addMemberForm").addEventListener("submit", function(e) {
     let valid = true;
-    const name = document.getElementById("name");
+    const name  = document.getElementById("name");
     const phone = document.getElementById("phone");
     const email = document.getElementById("email");
 
@@ -232,9 +311,12 @@ document.getElementById("addMemberForm").addEventListener("submit", function(e) 
 });
 
 ["name", "phone", "email"].forEach(id => {
-    document.getElementById(id).addEventListener("input", function() {
-        this.classList.remove("is-invalid");
-    });
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener("input", function() {
+            this.classList.remove("is-invalid");
+        });
+    }
 });
 </script>
 
