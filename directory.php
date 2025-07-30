@@ -21,7 +21,7 @@ if ($search !== '') {
         ");
         $count_stmt->execute(['%'.$search.'%', '%'.$search.'%', '%'.$search.'%']);
     } else {
-        // Non-admins: restrict search to name only
+        // Non-admins: restrict search to name only (optional but recommended)
         $count_stmt = $pdo->prepare("
             SELECT COUNT(*) FROM members m
             LEFT JOIN users u ON m.user_id = u.id
@@ -77,10 +77,9 @@ if ($search !== '') {
 
 $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Helper to escape output
+// Helpers
 function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 ?>
-
 <h3 class="mb-4">Photo Directory</h3>
 
 <div class="row">
@@ -111,7 +110,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
     </form>
 </div>
 
-<div class="row">
+<div class="row" id="memberCards">
     <?php foreach ($members as $member): ?>
         <?php
             // Build children list
@@ -122,13 +121,13 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             // Authorization to view private fields (admin or owner)
             $can_view_private = $is_admin || (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $member['user_id']);
 
-            // Precompute values for JS (private fields gated)
+            // Precompute values for dataset (private fields gated)
             $primary_phone  = $can_view_private ? (string) $member['primary_phone'] : '';
             $primary_email  = $can_view_private ? (string) $member['primary_email'] : '';
             $spouse_phone   = $can_view_private ? (string) $member['spouse_phone']  : '';
             $spouse_email   = $can_view_private ? (string) $member['spouse_email']  : '';
 
-            // Admin-only mailing address (send empty for non-admins)
+            // Admin-only mailing address (empty for non-admins)
             $mailing_address = ($is_admin && isset($member['mailing_address'])) ? (string) $member['mailing_address'] : '';
 
             $photo_src = !empty($member['family_photo'])
@@ -139,30 +138,28 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             $delete_link = $is_admin ? "admin/delete_member.php?id=" . urlencode((string)$member['id']) : "";
         ?>
         <div class="col-md-3 mb-3">
-            <div class="card shadow text-center p-2" style="cursor:pointer;"
-                onclick='showMemberModal(
-                    <?php echo json_encode($member["primary_name"]); ?>,
-                    <?php echo json_encode($primary_phone); ?>,
-                    <?php echo json_encode($primary_email); ?>,
-                    <?php echo json_encode($member["spouse_name"]); ?>,
-                    <?php echo json_encode($spouse_phone); ?>,
-                    <?php echo json_encode($spouse_email); ?>,
-                    <?php echo json_encode($mailing_address); ?>,
-                    <?php echo json_encode($children); ?>,
-                    <?php echo json_encode($photo_src); ?>,
-                    <?php echo json_encode($edit_link); ?>,
-                    <?php echo json_encode($delete_link); ?>,
-                    <?php echo $can_view_private ? 'true' : 'false'; ?>
-                )'>
-
-                <!-- Family Photo -->
+            <div class="card shadow text-center p-2 member-card"
+                 tabindex="0"
+                 role="button"
+                 data-name="<?php echo h($member['primary_name']); ?>"
+                 data-phone="<?php echo h($primary_phone); ?>"
+                 data-email="<?php echo h($primary_email); ?>"
+                 data-spouse="<?php echo h($member['spouse_name']); ?>"
+                 data-spouse-phone="<?php echo h($spouse_phone); ?>"
+                 data-spouse-email="<?php echo h($spouse_email); ?>"
+                 data-address="<?php echo h($mailing_address); ?>"
+                 data-children="<?php echo h($children); ?>"
+                 data-photo="<?php echo h($photo_src); ?>"
+                 data-edit-link="<?php echo h($edit_link); ?>"
+                 data-delete-link="<?php echo h($delete_link); ?>"
+                 data-admin-or-owner="<?php echo $can_view_private ? 'true' : 'false'; ?>"
+            >
                 <img
                     src="<?php echo h($photo_src); ?>"
                     alt="Family Photo"
                     class="card-img-top"
                     style="object-fit:cover; border-radius:8px;"
                 >
-
                 <div class="card-body">
                     <h6 class="card-title"><?php echo h($member['primary_name']); ?></h6>
                     <?php if (!empty($member['spouse_name'])): ?>
@@ -187,31 +184,20 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                     'sort'   => $sort,
                 ];
                 $merged = array_merge($base, $params);
-                // Remove empty search for cleaner URLs
-                if (isset($merged['search']) && $merged['search'] === '') {
-                    unset($merged['search']);
-                }
+                if (isset($merged['search']) && $merged['search'] === '') unset($merged['search']);
                 return '?' . http_build_query($merged);
             };
         ?>
         <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
-            <a class="page-link" href="<?php echo ($page > 1) ? h($qs(['page' => $page - 1])) : '#'; ?>">
-                Previous
-            </a>
+            <a class="page-link" href="<?php echo ($page > 1) ? h($qs(['page' => $page - 1])) : '#'; ?>">Previous</a>
         </li>
-
         <?php for ($i = 1; $i <= $total_pages; $i++): ?>
             <li class="page-item <?php echo ($i === $page) ? 'active' : ''; ?>">
-                <a class="page-link" href="<?php echo h($qs(['page' => $i])); ?>">
-                    <?php echo $i; ?>
-                </a>
+                <a class="page-link" href="<?php echo h($qs(['page' => $i])); ?>"><?php echo $i; ?></a>
             </li>
         <?php endfor; ?>
-
         <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
-            <a class="page-link" href="<?php echo ($page < $total_pages) ? h($qs(['page' => $page + 1])) : '#'; ?>">
-                Next
-            </a>
+            <a class="page-link" href="<?php echo ($page < $total_pages) ? h($qs(['page' => $page + 1])) : '#'; ?>">Next</a>
         </li>
     </ul>
 </nav>
@@ -248,7 +234,6 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
                         <!-- HR shown only if children section has visible fields -->
                         <hr id="hrChildren">
-
                         <p><strong>Children:</strong> <span id="modalChildren"></span></p>
                     </div>
 
@@ -269,6 +254,27 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 </div>
 
 <script>
+// Delegate click to all .member-card items (no inline JS)
+document.getElementById('memberCards').addEventListener('click', function (e) {
+    const card = e.target.closest('.member-card');
+    if (!card) return;
+
+    showMemberModal(
+        card.dataset.name || '',
+        card.dataset.phone || '',
+        card.dataset.email || '',
+        card.dataset.spouse || '',
+        card.dataset.spousePhone || '',
+        card.dataset.spouseEmail || '',
+        card.dataset.address || '',
+        card.dataset.children || '',
+        card.dataset.photo || '',
+        card.dataset.editLink || '',
+        card.dataset.deleteLink || '',
+        (card.dataset.adminOrOwner === 'true')
+    );
+});
+
 function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, address, children, photo, editLink, deleteLink, isAdminOrOwner) {
     const fields = [
         { id: 'modalName',        value: name },
@@ -277,19 +283,14 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
         { id: 'modalSpouse',      value: spouse },
         { id: 'modalSpousePhone', value: spousePhone },
         { id: 'modalSpouseEmail', value: spouseEmail },
-
-        // Address sent as empty string for non-admins; row will hide automatically
         { id: 'modalAddress',     value: address },
-
         { id: 'modalChildren',    value: children }
     ];
 
-    // Clear/hide fields based on value presence
     fields.forEach(f => {
         const el = document.getElementById(f.id);
         const parentP = el ? el.closest('p') : null;
         if (!el || !parentP) return;
-
         if (f.value && f.value.toString().trim() !== '') {
             el.textContent = f.value;
             parentP.style.display = 'block';
@@ -299,7 +300,7 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
         }
     });
 
-    // Toggle HR before Address
+    // HR before Address
     const pAddress  = document.getElementById('pAddress');
     const hrAddress = document.getElementById('hrAddress');
     if (pAddress && hrAddress) {
@@ -308,12 +309,11 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
         hrAddress.style.display = hasAddress ? 'block' : 'none';
     }
 
-    // Toggle HRs for spouse/children sections based on visibility
+    // HRs for spouse/children
     const spouseVisible =
         (document.getElementById('modalSpouse').textContent.trim() !== '') ||
         (document.getElementById('modalSpousePhone').textContent.trim() !== '') ||
         (document.getElementById('modalSpouseEmail').textContent.trim() !== '');
-
     const childrenVisible =
         (document.getElementById('modalChildren').textContent.trim() !== '');
 
@@ -326,7 +326,7 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
     // Photo
     document.getElementById('modalPhoto').src = photo || 'assets/images/default.png';
 
-    // Edit/Delete (only if admin or profile owner)
+    // Edit/Delete buttons
     const editBtn = document.getElementById('editBtn');
     const deleteBtn = document.getElementById('deleteBtn');
 
