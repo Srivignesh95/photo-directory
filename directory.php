@@ -76,9 +76,6 @@ if ($search !== '') {
 }
 
 $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Helper to escape output
-function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 ?>
 
 <h3 class="mb-4">Photo Directory</h3>
@@ -90,7 +87,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                 <input
                     type="text"
                     name="search"
-                    value="<?php echo h($search); ?>"
+                    value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>"
                     class="form-control"
                     placeholder="Search by Name<?php echo $is_admin ? ', Email or Phone' : ''; ?>"
                 >
@@ -122,23 +119,18 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             // Authorization to view private fields (admin or owner)
             $can_view_private = $is_admin || (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $member['user_id']);
 
-            // Precompute values for JS (private fields gated)
+            // Precompute values we will pass to JS (private fields gated)
             $primary_phone  = $can_view_private ? (string) $member['primary_phone'] : '';
             $primary_email  = $can_view_private ? (string) $member['primary_email'] : '';
             $spouse_phone   = $can_view_private ? (string) $member['spouse_phone']  : '';
             $spouse_email   = $can_view_private ? (string) $member['spouse_email']  : '';
 
-            // ✅ Admin-only mailing address (send empty for non-admins)
-            $mailing_address = $is_admin && isset($member['mailing_address'])
-                ? (string) $member['mailing_address']
-                : '';
+            $photo_src      = $member['family_photo']
+                                ? "assets/images/uploads/" . $member['family_photo']
+                                : "assets/images/default.png";
 
-            $photo_src = !empty($member['family_photo'])
-                ? "assets/images/uploads/" . $member['family_photo']
-                : "assets/images/default.png";
-
-            $edit_link   = $can_view_private ? "admin/edit_member.php?id=" . urlencode((string)$member['id']) : "";
-            $delete_link = $is_admin ? "admin/delete_member.php?id=" . urlencode((string)$member['id']) : "";
+            $edit_link      = $can_view_private ? "admin/edit_member.php?id=" . urlencode((string)$member['id']) : "";
+            $delete_link    = $is_admin ? "admin/delete_member.php?id=" . urlencode((string)$member['id']) : "";
         ?>
         <div class="col-md-3 mb-3">
             <div class="card shadow text-center p-2" style="cursor:pointer;"
@@ -149,7 +141,6 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                     <?php echo json_encode($member["spouse_name"]); ?>,
                     <?php echo json_encode($spouse_phone); ?>,
                     <?php echo json_encode($spouse_email); ?>,
-                    <?php echo json_encode($mailing_address); ?>,   // ✅ NEW: admin-only address
                     <?php echo json_encode($children); ?>,
                     <?php echo json_encode($photo_src); ?>,
                     <?php echo json_encode($edit_link); ?>,
@@ -159,17 +150,17 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
                 <!-- Family Photo -->
                 <img
-                    src="<?php echo h($photo_src); ?>"
+                    src="<?php echo htmlspecialchars($photo_src, ENT_QUOTES, 'UTF-8'); ?>"
                     alt="Family Photo"
                     class="card-img-top"
                     style="object-fit:cover; border-radius:8px;"
                 >
 
                 <div class="card-body">
-                    <h6 class="card-title"><?php echo h($member['primary_name']); ?></h6>
+                    <h6 class="card-title"><?php echo htmlspecialchars($member['primary_name'], ENT_QUOTES, 'UTF-8'); ?></h6>
                     <?php if (!empty($member['spouse_name'])): ?>
                         <p class="text-muted mb-0">
-                            Spouse: <?php echo h($member['spouse_name']); ?>
+                            Spouse: <?php echo htmlspecialchars($member['spouse_name'], ENT_QUOTES, 'UTF-8'); ?>
                         </p>
                     <?php endif; ?>
                 </div>
@@ -197,21 +188,21 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             };
         ?>
         <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
-            <a class="page-link" href="<?php echo ($page > 1) ? h($qs(['page' => $page - 1])) : '#'; ?>">
+            <a class="page-link" href="<?php echo ($page > 1) ? htmlspecialchars($qs(['page' => $page - 1]), ENT_QUOTES, 'UTF-8') : '#'; ?>">
                 Previous
             </a>
         </li>
 
         <?php for ($i = 1; $i <= $total_pages; $i++): ?>
             <li class="page-item <?php echo ($i === $page) ? 'active' : ''; ?>">
-                <a class="page-link" href="<?php echo h($qs(['page' => $i])); ?>">
+                <a class="page-link" href="<?php echo htmlspecialchars($qs(['page' => $i]), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php echo $i; ?>
                 </a>
             </li>
         <?php endfor; ?>
 
         <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
-            <a class="page-link" href="<?php echo ($page < $total_pages) ? h($qs(['page' => $page + 1])) : '#'; ?>">
+            <a class="page-link" href="<?php echo ($page < $total_pages) ? htmlspecialchars($qs(['page' => $page + 1]), ENT_QUOTES, 'UTF-8') : '#'; ?>">
                 Next
             </a>
         </li>
@@ -234,12 +225,6 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                         <p><strong>Name:</strong> <span id="modalName"></span></p>
                         <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
                         <p><strong>Email:</strong> <span id="modalEmail"></span></p>
-
-                        <!-- ✅ Optional HR before Address (shown only if address is visible) -->
-                        <hr id="hrAddress" style="display:none;">
-
-                        <!-- ✅ Admin-only (hidden for non-admins via server-side empty value) -->
-                        <p id="pAddress"><strong>Mailing Address:</strong> <span id="modalAddress"></span></p>
 
                         <!-- HR shown only if spouse section has visible fields -->
                         <hr id="hrSpouse">
@@ -271,7 +256,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 </div>
 
 <script>
-function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, address, children, photo, editLink, deleteLink, isAdminOrOwner) {
+function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, children, photo, editLink, deleteLink, isAdminOrOwner) {
     const fields = [
         { id: 'modalName',        value: name,        label: 'Name' },
         { id: 'modalPhone',       value: phone,       label: 'Phone' },
@@ -279,14 +264,10 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
         { id: 'modalSpouse',      value: spouse,      label: 'Spouse' },
         { id: 'modalSpousePhone', value: spousePhone, label: 'Spouse Phone' },
         { id: 'modalSpouseEmail', value: spouseEmail, label: 'Spouse Email' },
-
-        // ✅ Address is sent as empty string for non-admins, so it will hide automatically
-        { id: 'modalAddress',     value: address,     label: 'Mailing Address' },
-
         { id: 'modalChildren',    value: children,    label: 'Children' }
     ];
 
-    // Clear/hide fields based on value presence
+    // Clear/hide all fields first depending on value presence
     fields.forEach(f => {
         const el = document.getElementById(f.id);
         const parentP = el ? el.closest('p') : null;
@@ -301,16 +282,7 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
         }
     });
 
-    // Toggle HR before Address
-    const pAddress  = document.getElementById('pAddress');
-    const hrAddress = document.getElementById('hrAddress');
-    if (pAddress && hrAddress) {
-        const hasAddress = (document.getElementById('modalAddress').textContent.trim() !== '');
-        pAddress.style.display  = hasAddress ? 'block' : 'none';
-        hrAddress.style.display = hasAddress ? 'block' : 'none';
-    }
-
-    // Toggle HRs for spouse/children sections based on visibility
+    // Toggle HRs based on section visibility
     const spouseVisible =
         (document.getElementById('modalSpouse').textContent.trim() !== '') ||
         (document.getElementById('modalSpousePhone').textContent.trim() !== '') ||
@@ -338,6 +310,7 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, a
             editBtn.href = editLink || '#';
         }
         if (deleteBtn) {
+            // delete shown only if link provided (admin)
             if (deleteLink && deleteLink.trim() !== '') {
                 deleteBtn.style.display = 'inline-block';
                 deleteBtn.href = deleteLink;
