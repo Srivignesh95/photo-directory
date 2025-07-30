@@ -85,11 +85,7 @@ $members = $stmt->fetchAll();
             <div class="card shadow text-center p-2" style="cursor:pointer;"
                 onclick='showMemberModal(
                     <?php echo json_encode($member["primary_name"]); ?>,
-                    <?php echo json_encode($member["primary_phone"]); ?>,
-                    <?php echo json_encode($member["primary_email"]); ?>,
                     <?php echo json_encode($member["spouse_name"]); ?>,
-                    <?php echo json_encode($member["spouse_phone"]); ?>,
-                    <?php echo json_encode($member["spouse_email"]); ?>,
                     <?php echo json_encode($children); ?>,
                     <?php echo json_encode($member["family_photo"] ? "assets/images/uploads/".$member["family_photo"] : "assets/images/default.png"); ?>,
                     <?php echo json_encode(isAdmin() || $_SESSION["user_id"] == $member["user_id"] ? "admin/edit_member.php?id=".$member["id"] : ""); ?>,
