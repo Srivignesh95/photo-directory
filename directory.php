@@ -225,11 +225,17 @@ $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <p><strong>Name:</strong> <span id="modalName"></span></p>
                         <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
                         <p><strong>Email:</strong> <span id="modalEmail"></span></p>
-                        <hr>
+
+                        <!-- HR shown only if spouse section has visible fields -->
+                        <hr id="hrSpouse">
+
                         <p><strong>Spouse:</strong> <span id="modalSpouse"></span></p>
                         <p><strong>Spouse Phone:</strong> <span id="modalSpousePhone"></span></p>
                         <p><strong>Spouse Email:</strong> <span id="modalSpouseEmail"></span></p>
-                        <hr>
+
+                        <!-- HR shown only if children section has visible fields -->
+                        <hr id="hrChildren">
+
                         <p><strong>Children:</strong> <span id="modalChildren"></span></p>
                     </div>
 
@@ -275,6 +281,21 @@ function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, c
             parentP.style.display = 'none';
         }
     });
+
+    // Toggle HRs based on section visibility
+    const spouseVisible =
+        (document.getElementById('modalSpouse').textContent.trim() !== '') ||
+        (document.getElementById('modalSpousePhone').textContent.trim() !== '') ||
+        (document.getElementById('modalSpouseEmail').textContent.trim() !== '');
+
+    const childrenVisible =
+        (document.getElementById('modalChildren').textContent.trim() !== '');
+
+    const hrSpouse   = document.getElementById('hrSpouse');
+    const hrChildren = document.getElementById('hrChildren');
+
+    if (hrSpouse)   hrSpouse.style.display   = spouseVisible ? 'block' : 'none';
+    if (hrChildren) hrChildren.style.display = childrenVisible ? 'block' : 'none';
 
     // Photo
     document.getElementById('modalPhoto').src = photo || 'assets/images/default.png';
