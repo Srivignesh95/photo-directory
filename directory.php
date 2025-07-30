@@ -85,6 +85,8 @@ $members = $stmt->fetchAll();
             <div class="card shadow text-center p-2" style="cursor:pointer;"
                 onclick='showMemberModal(
                     <?php echo json_encode($member["primary_name"]); ?>,
+                    <?php echo json_encode($member["primary_phone"]); ?>,
+                    <?php echo json_encode($member["primary_email"]); ?>,
                     <?php echo json_encode($member["spouse_name"]); ?>,
                     <?php echo json_encode($member["spouse_phone"]); ?>,
                     <?php echo json_encode($member["spouse_email"]); ?>,
