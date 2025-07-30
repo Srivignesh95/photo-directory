@@ -21,7 +21,7 @@ if ($search !== '') {
         ");
         $count_stmt->execute(['%'.$search.'%', '%'.$search.'%', '%'.$search.'%']);
     } else {
-        // Non-admins: restrict search to name only (optional but recommended)
+        // Non-admins: restrict search to name only
         $count_stmt = $pdo->prepare("
             SELECT COUNT(*) FROM members m
             LEFT JOIN users u ON m.user_id = u.id
@@ -128,10 +128,8 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             $spouse_phone   = $can_view_private ? (string) $member['spouse_phone']  : '';
             $spouse_email   = $can_view_private ? (string) $member['spouse_email']  : '';
 
-            // ✅ Admin-only mailing address (send empty for non-admins)
-            $mailing_address = $is_admin && isset($member['mailing_address'])
-                ? (string) $member['mailing_address']
-                : '';
+            // Admin-only mailing address (send empty for non-admins)
+            $mailing_address = ($is_admin && isset($member['mailing_address'])) ? (string) $member['mailing_address'] : '';
 
             $photo_src = !empty($member['family_photo'])
                 ? "assets/images/uploads/" . $member['family_photo']
@@ -149,7 +147,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                     <?php echo json_encode($member["spouse_name"]); ?>,
                     <?php echo json_encode($spouse_phone); ?>,
                     <?php echo json_encode($spouse_email); ?>,
-                    <?php echo json_encode($mailing_address); ?>,   // ✅ NEW: admin-only address
+                    <?php echo json_encode($mailing_address); ?>,
                     <?php echo json_encode($children); ?>,
                     <?php echo json_encode($photo_src); ?>,
                     <?php echo json_encode($edit_link); ?>,
@@ -235,10 +233,10 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                         <p><strong>Phone:</strong> <span id="modalPhone"></span></p>
                         <p><strong>Email:</strong> <span id="modalEmail"></span></p>
 
-                        <!-- ✅ Optional HR before Address (shown only if address is visible) -->
+                        <!-- HR for Address (shown only if address is visible) -->
                         <hr id="hrAddress" style="display:none;">
 
-                        <!-- ✅ Admin-only (hidden for non-admins via server-side empty value) -->
+                        <!-- Admin-only via server-side empty value for non-admins -->
                         <p id="pAddress"><strong>Mailing Address:</strong> <span id="modalAddress"></span></p>
 
                         <!-- HR shown only if spouse section has visible fields -->
@@ -273,17 +271,17 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <script>
 function showMemberModal(name, phone, email, spouse, spousePhone, spouseEmail, address, children, photo, editLink, deleteLink, isAdminOrOwner) {
     const fields = [
-        { id: 'modalName',        value: name,        label: 'Name' },
-        { id: 'modalPhone',       value: phone,       label: 'Phone' },
-        { id: 'modalEmail',       value: email,       label: 'Email' },
-        { id: 'modalSpouse',      value: spouse,      label: 'Spouse' },
-        { id: 'modalSpousePhone', value: spousePhone, label: 'Spouse Phone' },
-        { id: 'modalSpouseEmail', value: spouseEmail, label: 'Spouse Email' },
+        { id: 'modalName',        value: name },
+        { id: 'modalPhone',       value: phone },
+        { id: 'modalEmail',       value: email },
+        { id: 'modalSpouse',      value: spouse },
+        { id: 'modalSpousePhone', value: spousePhone },
+        { id: 'modalSpouseEmail', value: spouseEmail },
 
-        // ✅ Address is sent as empty string for non-admins, so it will hide automatically
-        { id: 'modalAddress',     value: address,     label: 'Mailing Address' },
+        // Address sent as empty string for non-admins; row will hide automatically
+        { id: 'modalAddress',     value: address },
 
-        { id: 'modalChildren',    value: children,    label: 'Children' }
+        { id: 'modalChildren',    value: children }
     ];
 
     // Clear/hide fields based on value presence
