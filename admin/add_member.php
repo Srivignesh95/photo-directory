@@ -44,18 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'mailing_address' => $mailing_address
     ];
 
-    // ✅ Validation
+    // ✅ Validation (primary)
     if (empty($name)) {
         $error = "Primary member name is required.";
     } elseif (empty($email) && empty($phone)) {
-        $error = "Please provide either an Email or a Phone number.";
+        $error = "Please provide either an Email or a Phone number for the primary member.";
+    }
+
+    // ✅ Additional validation (spouse)
+    if (!$error && !empty($spouse_email) && !filter_var($spouse_email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Spouse email is not a valid email address.";
+    }
+    if (!$error && !empty($email) && !empty($spouse_email) && strcasecmp($spouse_email, $email) === 0) {
+        $error = "Spouse email cannot be the same as the primary member email.";
     }
 
     // ✅ Prepare values (NULL if empty)
     $emailValue = !empty($email) ? $email : null;
     $phoneValue = !empty($phone) ? $phone : null;
 
-    // ✅ Check for duplicates before starting transaction
+    // ✅ Check for duplicates (PRIMARY) before starting transaction
     if (!$error && (!empty($emailValue) || !empty($phoneValue))) {
         $checkSql = "SELECT id FROM users WHERE ";
         $params   = [];
@@ -72,23 +80,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $check = $pdo->prepare($checkSql);
         $check->execute($params);
         if ($check->fetch()) {
-            $error = "Email or Phone already exists. Cannot create a new user.";
+            $error = "Email or Phone already exists for another user. Cannot create a new primary user.";
         }
     }
 
+    // ✅ Handle photo upload (before transaction, but only set $error if something goes wrong)
+    $photo_name = 'default.png';
     if (!$error) {
-        // ✅ Handle photo upload
-        $photo_name = 'default.png';
         if (!empty($_FILES['family_photo']['name'])) {
             $photo_ext = pathinfo($_FILES['family_photo']['name'], PATHINFO_EXTENSION);
             $photo_ext = strtolower($photo_ext);
-            // Basic allowlist (optional)
             $allowed = ['jpg','jpeg','png','gif','webp'];
             if (!in_array($photo_ext, $allowed)) {
                 $error = "Unsupported image type. Allowed: JPG, PNG, GIF, WEBP.";
             } else {
-                $photo_name = time() . '_' . uniqid('', true) . '.' . $photo_ext;
+                // Hardened file name
+                $photo_name  = time() . '_' . bin2hex(random_bytes(6)) . '.' . $photo_ext;
                 $target_path = __DIR__ . '/../assets/images/uploads/' . $photo_name;
+
+                // Create dir if missing
+                $dir = dirname($target_path);
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0755, true);
+                }
+
                 if (!@move_uploaded_file($_FILES['family_photo']['tmp_name'], $target_path)) {
                     $error = "Failed to upload the photo.";
                 }
@@ -99,18 +114,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$error) {
         try {
             $pdo->beginTransaction();
-            $user_id = null;
 
-            // ✅ Create user if email OR phone exists
+            $user_id = null;         // primary user's id
+            $spouse_user_id = null;  // spouse user's id (optional link)
+
+            // ---------- PRIMARY USER ----------
             if (!empty($emailValue) || !empty($phoneValue)) {
                 $temp_password   = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
                 $hashed_password = password_hash($temp_password, PASSWORD_DEFAULT);
 
-                $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, password, role, status) VALUES (?, ?, ?, ?, 'user', 'approved')");
+                $stmt = $pdo->prepare("
+                    INSERT INTO users (name, email, phone, password, role, status)
+                    VALUES (?, ?, ?, ?, 'user', 'approved')
+                ");
                 $stmt->execute([$name, $emailValue, $phoneValue, $hashed_password]);
-                $user_id = $pdo->lastInsertId();
+                $user_id = (int)$pdo->lastInsertId();
 
-                // ✅ Send email if email exists
+                // Send welcome email if email exists
                 if (!empty($emailValue)) {
                     $subject = "Welcome to Photo Directory!";
                     $message = "
@@ -134,34 +154,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $headers  = "MIME-Version: 1.0\r\n";
                     $headers .= "Content-type:text/html;charset=UTF-8\r\n";
                     $headers .= "From: no-reply@photodirectory.com\r\n";
-
+                    // Consider logging errors rather than suppressing with @ in production
                     @mail($emailValue, $subject, $message, $headers);
                 }
             }
 
-            // ✅ Insert member (with mailing_address)
+            // ---------- SPOUSE USER (optional) ----------
+            if (!empty($spouse_email)) {
+                // Try to find existing user by spouse email
+                $findSpouse = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                $findSpouse->execute([$spouse_email]);
+                $existingSpouse = $findSpouse->fetch(PDO::FETCH_ASSOC);
+
+                if ($existingSpouse) {
+                    // Link to existing spouse account; no email sent
+                    $spouse_user_id = (int)$existingSpouse['id'];
+                } else {
+                    // Create new spouse user with temp password and email it
+                    $spouse_temp_password   = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
+                    $spouse_hashed_password = password_hash($spouse_temp_password, PASSWORD_DEFAULT);
+
+                    $spouse_account_name = !empty($spouse_name) ? $spouse_name : ($name . " - Spouse");
+
+                    $createSpouse = $pdo->prepare("
+                        INSERT INTO users (name, email, phone, password, role, status)
+                        VALUES (?, ?, NULL, ?, 'user', 'approved')
+                    ");
+                    $createSpouse->execute([$spouse_account_name, $spouse_email, $spouse_hashed_password]);
+                    $spouse_user_id = (int)$pdo->lastInsertId();
+
+                    // Send welcome email to spouse
+                    $subjectS = "Welcome to Photo Directory!";
+                    $messageS = "
+                        <div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f7f7f7; color: #333;'>
+                            <h2 style='color: #2a7ae2;'>Welcome to Photo Directory!</h2>
+                            <p>An administrator has created an account for you.</p>
+                            <p><strong>Your login details:</strong></p>
+                            <ul style='line-height: 1.6;'>
+                                <li><strong>Email:</strong> {$spouse_email}</li>
+                                <li><strong>Temporary Password:</strong> {$spouse_temp_password}</li>
+                            </ul>
+                            <p style='margin: 20px 0;'>
+                                <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to Photo Directory</a>
+                            </p>
+                            <p><em>Please change your password after logging in.</em></p>
+                            <hr style='border: none; border-top: 1px solid #ccc;'>
+                            <p style='font-size: 12px; color: #888;'>Thank you,<br>Photo Directory Team</p>
+                        </div>
+                    ";
+                    $headersS  = "MIME-Version: 1.0\r\n";
+                    $headersS .= "Content-type:text/html;charset=UTF-8\r\n";
+                    $headersS .= "From: no-reply@photodirectory.com\r\n";
+                    @mail($spouse_email, $subjectS, $messageS, $headersS);
+                }
+            }
+
+            // ---------- INSERT MEMBER ----------
+            // Includes spouse_user_id FK link (nullable)
             $stmt = $pdo->prepare("
                 INSERT INTO members (
-                    user_id, family_photo, spouse_name, spouse_phone, spouse_email, mailing_address
+                    user_id, spouse_user_id, family_photo,
+                    spouse_name, spouse_phone, spouse_email,
+                    mailing_address
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
-                $user_id,
+                $user_id ?: null,
+                $spouse_user_id ?: null,
                 $photo_name,
                 !empty($spouse_name) ? $spouse_name : null,
                 !empty($spouse_phone) ? $spouse_phone : null,
                 !empty($spouse_email) ? $spouse_email : null,
                 !empty($mailing_address) ? $mailing_address : null
             ]);
-            $member_id = $pdo->lastInsertId();
+            $member_id = (int)$pdo->lastInsertId();
 
-            // ✅ Insert children
+            // ---------- INSERT CHILDREN ----------
             if (!empty($children)) {
                 $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
                 foreach ($children as $child_name) {
-                    if (!empty(trim($child_name))) {
-                        $child_stmt->execute([$member_id, trim($child_name)]);
+                    $child_name = trim($child_name);
+                    if (!empty($child_name)) {
+                        $child_stmt->execute([$member_id, $child_name]);
                     }
                 }
             }
@@ -234,11 +309,10 @@ function h($v) { return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); }
                 <div class="invalid-feedback">Please provide a phone number or an email.</div>
             </div>
 
-            <!-- ✅ New: Mailing Address -->
+            <!-- ✅ Mailing Address -->
             <div class="mb-3">
                 <label>Mailing Address</label>
                 <textarea name="mailing_address" id="mailing_address" class="form-control" rows="3" placeholder="Street, City, Province/State, Postal/ZIP, Country"><?php echo h($posted['mailing_address']); ?></textarea>
-                <!-- Make required if you want: add invalid-feedback and client-side rule -->
             </div>
 
             <h5>Spouse Details</h5>
@@ -251,8 +325,9 @@ function h($v) { return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); }
                 <input type="text" name="spouse_phone" class="form-control" value="<?php echo h($posted['spouse_phone']); ?>">
             </div>
             <div class="mb-3">
-                <label>Email</label>
+                <label>Email (optional)</label>
                 <input type="email" name="spouse_email" class="form-control" value="<?php echo h($posted['spouse_email']); ?>">
+                <div class="form-text">If provided, a spouse login will be created (or linked) and a temporary password will be emailed.</div>
             </div>
 
             <h5>Children</h5>
