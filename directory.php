@@ -44,7 +44,12 @@ $total_pages   = ($total_members > 0) ? (int) ceil($total_members / $limit) : 1;
 if ($search !== '') {
     if ($is_admin) {
         $stmt = $pdo->prepare("
-            SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
+            SELECT
+                m.*,
+                u.name  AS primary_name,
+                u.email AS primary_email,
+                u.phone AS primary_phone,
+                u.id    AS user_id
             FROM members m
             LEFT JOIN users u ON m.user_id = u.id
             WHERE (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?) AND u.status = 'approved'
@@ -54,7 +59,12 @@ if ($search !== '') {
         $stmt->execute(['%'.$search.'%', '%'.$search.'%', '%'.$search.'%']);
     } else {
         $stmt = $pdo->prepare("
-            SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
+            SELECT
+                m.*,
+                u.name  AS primary_name,
+                u.email AS primary_email,
+                u.phone AS primary_phone,
+                u.id    AS user_id
             FROM members m
             LEFT JOIN users u ON m.user_id = u.id
             WHERE u.name LIKE ? AND u.status = 'approved'
@@ -65,7 +75,12 @@ if ($search !== '') {
     }
 } else {
     $stmt = $pdo->prepare("
-        SELECT m.*, u.name AS primary_name, u.email AS primary_email, u.phone AS primary_phone, u.id AS user_id
+        SELECT
+            m.*,
+            u.name  AS primary_name,
+            u.email AS primary_email,
+            u.phone AS primary_phone,
+            u.id    AS user_id
         FROM members m
         LEFT JOIN users u ON m.user_id = u.id
         WHERE u.status = 'approved'
@@ -118,22 +133,31 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             $child_stmt->execute([$member['id']]);
             $children = implode(', ', array_column($child_stmt->fetchAll(PDO::FETCH_ASSOC), 'child_name'));
 
-            // Authorization to view private fields (admin or owner)
-            $can_view_private = $is_admin || (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $member['user_id']);
+            // Authorization to view private fields (admin or owner: primary or spouse)
+            $can_view_private = $is_admin
+                || (isset($_SESSION['user_id']) && (
+                    $_SESSION['user_id'] == $member['user_id']
+                    || (isset($member['spouse_user_id']) && $_SESSION['user_id'] == $member['spouse_user_id'])
+                ));
 
             // Precompute values for dataset (private fields gated)
-            $primary_phone  = $can_view_private ? (string) $member['primary_phone'] : '';
-            $primary_email  = $can_view_private ? (string) $member['primary_email'] : '';
-            $spouse_phone   = $can_view_private ? (string) $member['spouse_phone']  : '';
-            $spouse_email   = $can_view_private ? (string) $member['spouse_email']  : '';
+            $primary_phone  = $can_view_private ? (string) ($member['primary_phone'] ?? '') : '';
+            $primary_email  = $can_view_private ? (string) ($member['primary_email'] ?? '') : '';
+            $spouse_phone   = $can_view_private ? (string) ($member['spouse_phone']  ?? '') : '';
+            $spouse_email   = $can_view_private ? (string) ($member['spouse_email']  ?? '') : '';
 
-            // Admin-only mailing address (empty for non-admins)
-            $mailing_address = ($is_admin && isset($member['mailing_address'])) ? (string) $member['mailing_address'] : '';
+            // Mailing address:
+            //   - If you want admin-only, use: ($is_admin && isset($member['mailing_address'])) ? ...
+            //   - If you want owners (primary/spouse) to see it too, use $can_view_private (enabled below).
+            $mailing_address = ($can_view_private && isset($member['mailing_address']))
+                ? (string) $member['mailing_address']
+                : '';
 
             $photo_src = !empty($member['family_photo'])
                 ? "assets/images/uploads/" . $member['family_photo']
                 : "assets/images/default.png";
 
+            // Edit allowed for admin or owner (primary/spouse). Delete remains admin‑only.
             $edit_link   = $can_view_private ? "admin/edit_member.php?id=" . urlencode((string)$member['id']) : "";
             $delete_link = $is_admin ? "admin/delete_member.php?id=" . urlencode((string)$member['id']) : "";
         ?>
@@ -222,7 +246,6 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                         <!-- HR for Address (shown only if address is visible) -->
                         <hr id="hrAddress" style="display:none;">
 
-                        <!-- Admin-only via server-side empty value for non-admins -->
                         <p id="pAddress"><strong>Mailing Address:</strong> <span id="modalAddress"></span></p>
 
                         <!-- HR shown only if spouse section has visible fields -->
