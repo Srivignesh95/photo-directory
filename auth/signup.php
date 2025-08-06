@@ -60,7 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $user_id = $pdo->lastInsertId();
 
                         $spouse_user_id = null;
-                        if ($spouse_login && !empty($spouse_email)) {
+                        if ($spouse_login) {
+                            if (empty($spouse_email)) {
+                                throw new Exception("Spouse email is required if login is requested.");
+                            }
+
                             $checkSpouse = $pdo->prepare("SELECT id FROM users WHERE email = ?");
                             $checkSpouse->execute([$spouse_email]);
                             $existingSpouse = $checkSpouse->fetch(PDO::FETCH_ASSOC);
@@ -76,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $stmtSpouse->execute([$spouse_account_name, $spouse_email, $spouse_hashed_password]);
                                 $spouse_user_id = (int)$pdo->lastInsertId();
 
+                                // Send welcome email to spouse
                                 $subjectS = "Welcome to St. Timothy’s Photo Directory";
                                 $messageS = "<div style='font-family: Arial;'><h2>Welcome!</h2><p>Email: {$spouse_email}</p><p>Temp Password: {$spouse_temp_password}</p></div>";
                                 $headersS  = "MIME-Version: 1.0\r\n";
@@ -87,24 +92,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $stmt = $pdo->prepare("INSERT INTO members (user_id, spouse_user_id, family_photo, spouse_name, spouse_phone, spouse_email, mailing_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
                         $stmt->execute([$user_id, $spouse_user_id, $photo_name, $spouse_name ?: null, $spouse_phone ?: null, $spouse_email ?: null, $addressValue]);
-                        $member_id = $pdo->lastInsertId();
 
                         if (!empty($children)) {
                             $child_stmt = $pdo->prepare("INSERT INTO children (member_id, child_name) VALUES (?, ?)");
                             foreach ($children as $child_name) {
                                 if (!empty(trim($child_name))) {
-                                    $child_stmt->execute([$member_id, trim($child_name)]);
+                                    $child_stmt->execute([$pdo->lastInsertId(), trim($child_name)]);
                                 }
                             }
                         }
 
                         $pdo->commit();
                         $success = "Signup successful! Your account is pending admin approval.";
+
+                        // Reset form values
                         $name = $email = $phone = $password = $confirm_password = '';
                         $spouse_name = $spouse_phone = $spouse_email = '';
                         $mailing_address = '';
                         $children = [];
                         $photo_name = null;
+
                     } catch (Exception $e) {
                         $pdo->rollBack();
                         $error = "Error: " . $e->getMessage();
@@ -120,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
+<!-- HTML FORM -->
 <div class="row justify-content-center">
   <div class="col-md-8">
     <div class="card shadow">
@@ -128,13 +136,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
       <div class="card-body">
         <?php if ($error): ?>
-          <div class="alert alert-danger"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
+          <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
         <?php if ($success): ?>
-          <div class="alert alert-success"><?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?></div>
+          <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
 
-        <form method="POST" enctype="multipart/form-data" novalidate>
+        <form method="POST" enctype="multipart/form-data">
           <div class="mb-3">
             <label>Family Photo</label>
             <input type="file" name="family_photo" class="form-control" accept="image/*">
@@ -142,22 +150,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           <div class="mb-3">
             <label>Name (Primary Member)*</label>
-            <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($name ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
+            <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($name); ?>" required>
           </div>
 
           <div class="mb-3">
             <label>Email*</label>
-            <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($email ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
+            <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($email); ?>" required>
           </div>
 
           <div class="mb-3">
             <label>Phone (Optional)</label>
-            <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($phone ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($phone); ?>">
           </div>
 
           <div class="mb-3">
             <label>Mailing Address</label>
-            <input type="text" name="mailing_address" class="form-control" placeholder="Street, City, Province/State, Postal/ZIP, Country" value="<?php echo htmlspecialchars($mailing_address ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="text" name="mailing_address" class="form-control" value="<?php echo htmlspecialchars($mailing_address); ?>">
           </div>
 
           <div class="mb-3">
@@ -173,30 +181,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <h5>Spouse Details</h5>
           <div class="mb-3">
             <label>Name</label>
-            <input type="text" name="spouse_name" class="form-control" value="<?php echo htmlspecialchars($spouse_name ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="text" name="spouse_name" class="form-control" value="<?php echo htmlspecialchars($spouse_name); ?>">
           </div>
+
           <div class="mb-3">
             <label>Phone</label>
-            <input type="text" name="spouse_phone" class="form-control" value="<?php echo htmlspecialchars($spouse_phone ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="text" name="spouse_phone" class="form-control" value="<?php echo htmlspecialchars($spouse_phone); ?>">
           </div>
+
           <div class="mb-3">
             <label>Email</label>
-            <input type="email" name="spouse_email" class="form-control" value="<?php echo htmlspecialchars($spouse_email ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="email" name="spouse_email" class="form-control" value="<?php echo htmlspecialchars($spouse_email); ?>">
           </div>
+
           <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" name="spouse_login" value="1" id="spouse_login">
-            <label class="form-check-label" for="spouse_login">
-              Does your spouse need a login?
-            </label>
+            <label class="form-check-label" for="spouse_login">Does your spouse need a login?</label>
           </div>
 
           <h5>Children</h5>
           <div id="children-container">
-            <?php if (!empty($children)): ?>
-              <?php foreach ($children as $child): ?>
-                <input type="text" name="children[]" class="form-control mb-2" value="<?php echo htmlspecialchars($child, ENT_QUOTES, 'UTF-8'); ?>">
-              <?php endforeach; ?>
-            <?php endif; ?>
+            <?php foreach ($children as $child): ?>
+              <input type="text" name="children[]" class="form-control mb-2" value="<?php echo htmlspecialchars($child); ?>">
+            <?php endforeach; ?>
           </div>
           <button type="button" class="btn btn-secondary mb-3" onclick="addChild()">Add Child</button>
 
@@ -205,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="mt-3 text-center">
           <a href="login.php">Already have an account? Login here</a>
-          <a href="forgot_password.php" class="d-block mb-2">Forgot Password?</a>
+          <a href="forgot_password.php" class="d-block">Forgot Password?</a>
         </div>
       </div>
     </div>
