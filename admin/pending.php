@@ -21,14 +21,14 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
         $user = $user_stmt->fetch();
 
         // Send approval email to primary user
-        $subject = "Welcome to St. Timothy’s Photo Directory – Your Account Has Been Approved!";
+        $subject = "Welcome to St. Timothy's Photo Directory – Your Account Has Been Approved!";
         $message = "
             <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
                 <h2 style='color: #2a7ae2;'>Hi " . htmlspecialchars($user['name']) . ",</h2>
-                <p>We're excited to let you know that your account for the St. Timothy’s <strong>Photo Directory</strong> has been approved by an administrator.</p>
+                <p>We're excited to let you know that your account for the St. Timothy's <strong>Photo Directory</strong> has been approved by an administrator.</p>
                 <p>You can now log in and access the directory:</p>
                 <p style='margin: 20px 0;'>
-                    <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to St. Timothy’s Photo Directory</a>
+                    <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to St. Timothy's Photo Directory</a>
                 </p>
                 <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
                 <p style='font-size: 12px; color: #888;'>Thank you,<br>The Photo Directory Team</p>
@@ -65,7 +65,7 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
                 $message_spouse = "
                     <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
                         <h2 style='color: #2a7ae2;'>Hi " . htmlspecialchars($spouse['name']) . ",</h2>
-                        <p>Your account for the St. Timothy’s <strong>Photo Directory</strong> has been approved.</p>
+                        <p>Your account for the St. Timothy's <strong>Photo Directory</strong> has been approved.</p>
                         <p>You can now log in with the following temporary password:</p>
                         <p><strong>Temporary Password: </strong>" . $temp_password . "</p>
                         <p style='margin: 20px 0;'>
