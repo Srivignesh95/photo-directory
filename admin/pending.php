@@ -11,28 +11,26 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     $action = $_GET['action'];
 
     if ($action === 'approve') {
+        // Approve the selected user
         $stmt = $pdo->prepare("UPDATE users SET status = 'approved' WHERE id = ?");
         $stmt->execute([$user_id]);
 
-        // Fetch user email
+        // Fetch user details
         $user_stmt = $pdo->prepare("SELECT email, name FROM users WHERE id = ?");
         $user_stmt->execute([$user_id]);
         $user = $user_stmt->fetch();
 
-        // Send approval email
+        // Send approval email to primary user
         $subject = "Welcome to St. Timothy’s Photo Directory – Your Account Has Been Approved!";
         $message = "
             <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
                 <h2 style='color: #2a7ae2;'>Hi " . htmlspecialchars($user['name']) . ",</h2>
                 <p>We're excited to let you know that your account for the St. Timothy’s <strong>Photo Directory</strong> has been approved by an administrator.</p>
-
                 <p>You can now log in and access the directory:</p>
                 <p style='margin: 20px 0;'>
                     <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to St. Timothy’s Photo Directory</a>
                 </p>
-
                 <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
-
                 <p style='font-size: 12px; color: #888;'>Thank you,<br>The Photo Directory Team</p>
             </div>
         ";
@@ -43,6 +41,35 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
 
         mail($user['email'], $subject, $message, $headers);
 
+        // Check if this user is a spouse (from members table)
+        $spouseCheck = $pdo->prepare("SELECT id FROM members WHERE spouse_user_id = ?");
+        $spouseCheck->execute([$user_id]);
+
+        if ($spouseCheck->rowCount() > 0) {
+            // Generate temporary password and update it
+            $temp_password = bin2hex(random_bytes(4));
+            $hashed = password_hash($temp_password, PASSWORD_DEFAULT);
+            $updatePass = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $updatePass->execute([$hashed, $user_id]);
+
+            // Send spouse email with temp password
+            $subject = "Welcome to St. Timothy’s Photo Directory – Your Account Has Been Approved!";
+            $message = "
+                <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
+                    <h2 style='color: #2a7ae2;'>Hi " . htmlspecialchars($user['name']) . ",</h2>
+                    <p>Your account for the St. Timothy’s <strong>Photo Directory</strong> has been approved.</p>
+                    <p>You can now log in with the following temporary password:</p>
+                    <p><strong>Temporary Password: </strong>" . $temp_password . "</p>
+                    <p style='margin: 20px 0;'>
+                        <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login Now</a>
+                    </p>
+                    <p>We recommend changing your password after your first login.</p>
+                    <hr style='border: none; border-top: 1px solid #ddd; margin: 30px 0;'>
+                    <p style='font-size: 12px; color: #888;'>Thank you,<br>The Photo Directory Team</p>
+                </div>
+            ";
+            mail($user['email'], $subject, $message, $headers);
+        }
     } elseif ($action === 'reject') {
         $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
         $stmt->execute([$user_id]);
