@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "
                 <div style='font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;'>
                     <h2 style='color: #2a7ae2;'>Forgot Your Password?</h2>
-                    <p>We received a request to reset your password for the <strong>Photo Directory</strong>.</p>
+                    <p>We received a request to reset your password for the St. Timothy’s <strong>Photo Directory</strong>.</p>
                     <p>Click the button below to create a new password:</p>
 
                     <p style='margin: 20px 0;'>

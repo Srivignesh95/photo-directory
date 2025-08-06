@@ -184,10 +184,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $spouse_user_id = (int)$pdo->lastInsertId();
 
                     // Send welcome email to spouse
-                    $subjectS = "Welcome to Photo Directory!";
+                    $subjectS = "Welcome to St. Timothy’s Photo Directory";
                     $messageS = "
                         <div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f7f7f7; color: #333;'>
-                            <h2 style='color: #2a7ae2;'>Welcome to Photo Directory!</h2>
+                            <h2 style='color: #2a7ae2;'>Welcome to St. Timothy’s Photo Directory!</h2>
                             <p>An administrator has created an account for you.</p>
                             <p><strong>Your login details:</strong></p>
                             <ul style='line-height: 1.6;'>
@@ -195,7 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <li><strong>Temporary Password:</strong> {$spouse_temp_password}</li>
                             </ul>
                             <p style='margin: 20px 0;'>
-                                <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to Photo Directory</a>
+                                <a href='" . BASE_URL . "auth/login.php' style='background-color: #2a7ae2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Login to St. Timothy’s Photo Directory</a>
                             </p>
                             <p><em>Please change your password after logging in.</em></p>
                             <hr style='border: none; border-top: 1px solid #ccc;'>
