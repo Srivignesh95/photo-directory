@@ -132,10 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Send welcome email if email exists
                 if (!empty($emailValue)) {
-                    $subject = "Welcome to Photo Directory!";
+                    $subject = "Welcome to St. Timothy’s Photo Directory";
                     $message = "
                         <div style='font-family: Arial, sans-serif; padding: 20px; background-color: #f7f7f7; color: #333;'>
-                            <h2 style='color: #2a7ae2;'>Welcome to Photo Directory!</h2>
+                            <h2 style='color: #2a7ae2;'>Welcome to St. Timothy’s Photo Directory</h2>
                             <p>Your account has been created by an administrator.</p>
                             <p><strong>Here are your login details:</strong></p>
                             <ul style='line-height: 1.6;'>
