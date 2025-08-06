@@ -72,17 +72,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($existingSpouse) {
                                 $spouse_user_id = (int)$existingSpouse['id'];
                             } else {
-                                $spouse_temp_password   = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
-                                $spouse_hashed_password = password_hash($spouse_temp_password, PASSWORD_DEFAULT);
                                 $spouse_account_name = !empty($spouse_name) ? $spouse_name : ($name . " - Spouse");
-
+                                $dummy_password = password_hash(bin2hex(random_bytes(4)), PASSWORD_DEFAULT);
                                 $stmtSpouse = $pdo->prepare("INSERT INTO users (name, email, phone, password, role, status) VALUES (?, ?, NULL, ?, 'user', 'pending')");
-                                $stmtSpouse->execute([$spouse_account_name, $spouse_email, $spouse_hashed_password]);
+                                $stmtSpouse->execute([$spouse_account_name, $spouse_email, $dummy_password]);
                                 $spouse_user_id = (int)$pdo->lastInsertId();
 
-                                // Send welcome email to spouse
+                                // Send welcome email to spouse (no temp password)
                                 $subjectS = "Welcome to St. Timothy’s Photo Directory";
-                                $messageS = "<div style='font-family: Arial;'><h2>Welcome!</h2><p>Email: {$spouse_email}</p><p>Temp Password: {$spouse_temp_password}</p></div>";
+                                $messageS = "<div style='font-family: Arial; background-color: #f9f9f9; padding: 20px; color: #333;'><h2>Welcome, " . htmlspecialchars($spouse_account_name) . "!</h2><p>Your account for the <strong>St. Timothy’s Photo Directory</strong> has been created and is currently under review.</p><p>You will receive another email once your account has been approved.</p><p>Thank you for your patience!</p><br><p style='font-size: 12px; color: #777;'>— The Photo Directory Team</p></div>";
                                 $headersS  = "MIME-Version: 1.0\r\n";
                                 $headersS .= "Content-type:text/html;charset=UTF-8\r\n";
                                 $headersS .= "From: no-reply@photodirectory.com\r\n";
@@ -105,6 +103,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pdo->commit();
                         $success = "Signup successful! Your account is pending admin approval.";
 
+                        // Send welcome email to primary user
+                        $subjectU = "Welcome to St. Timothy’s Photo Directory";
+                        $messageU = "<div style='font-family: Arial; background-color: #f9f9f9; padding: 20px; color: #333;'><h2>Welcome, " . htmlspecialchars($name) . "!</h2><p>Thank you for signing up for the <strong>St. Timothy’s Photo Directory</strong>.</p><p>Your account is currently under review by our admin team. You will receive another email once your account has been approved.</p><p>We appreciate your patience!</p><br><p style='font-size: 12px; color: #777;'>— The Photo Directory Team</p></div>";
+                        $headersU  = "MIME-Version: 1.0\r\n";
+                        $headersU .= "Content-type:text/html;charset=UTF-8\r\n";
+                        $headersU .= "From: no-reply@photodirectory.com\r\n";
+                        @mail($email, $subjectU, $messageU, $headersU);
+
                         // Reset form values
                         $name = $email = $phone = $password = $confirm_password = '';
                         $spouse_name = $spouse_phone = $spouse_email = '';
@@ -126,7 +132,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!-- HTML FORM -->
 <div class="row justify-content-center">
   <div class="col-md-8">
